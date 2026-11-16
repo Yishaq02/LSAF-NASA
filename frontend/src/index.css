@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #080D1B;
+    background-image: 
+      radial-gradient(circle at 15% 20%, rgba(20, 43, 82, 0.45) 0%, transparent 40%),
+      radial-gradient(circle at 85% 60%, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 50% 90%, rgba(37, 217, 242, 0.08) 0%, transparent 45%);
+    background-attachment: fixed;
+    color: #F5F7FF;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+    scroll-behavior: smooth;
+  }
+
+  /* Global numeric precision */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Glassmorphism Cosmic Cards */
+.cosmic-card {
+  background: rgba(20, 43, 82, 0.40);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 1rem;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+}
+
+.cosmic-card-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cosmic-card-hover:hover {
+  border-color: rgba(37, 217, 242, 0.4);
+  box-shadow: 0 0 25px rgba(37, 217, 242, 0.15), 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+  transform: translateY(-1px);
+}
+
+/* Cosmic Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080D1B;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E3A6E;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #25D9F2;
+}
+
+/* Modern Slider Styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  background: #142B52;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #25D9F2;
+  cursor: ew-resize;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 8px rgba(37, 217, 242, 0.8);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #8B5CF6;
+  transform: scale(1.2);
+}
+
+/* Smooth Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
