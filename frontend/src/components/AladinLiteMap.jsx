@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Sparkles,
   Compass,
@@ -11,8 +11,17 @@ import {
   Eye,
   Layers,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  DownloadCloud
 } from 'lucide-react';
+import {
+  formatTargetName,
+  formatTargetType,
+  formatTargetDescription,
+  cleanStarName,
+  formatSimbadOtype,
+  raDecToSexagesimal
+} from '../utils/astroLabels';
 
 // 5 Active IRSA / SPHEREx Observational Strips for Free Sky Exploration (POST /api/explorar with target_id: null)
 export const IRSA_COVERAGE_PRESETS = [
@@ -74,13 +83,14 @@ export const normalizeSurvey = (s) => {
 export default function AladinLiteMap({
   ra,
   dec,
-  survey = 'CDS/P/2MASS/color',
+  survey = 'P/2MASS/color',
   onChangeSurvey,
   targets = [],
   activeTarget = null,
   onSelectTarget,
   onFreeSkyClick,
   onTriggerIngest,
+  onOpenIngestModal,
   isIngesting = false,
   isLoadingSky = false,
   onAutoScroll,
@@ -89,6 +99,13 @@ export default function AladinLiteMap({
   const aladinRef = useRef(null);
   const catalogRef = useRef(null);
   const presetsCatalogRef = useRef(null);
+  const simbadCatalogRef = useRef(null);
+  const simbadSourcesRef = useRef([]);
+  const catalogedStarsRef = useRef([]);
+  const cursorTooltipRef = useRef(null);
+  const positionTimeoutRef = useRef(null);
+  const hoverTimeoutRef = useRef(null);
+  const lastSimbadQueryRef = useRef(null);
   const isObjectClickRef = useRef(false);
   const wasDraggingRef = useRef(false);
   const pointerDownPosRef = useRef({ x: 0, y: 0 });
@@ -100,6 +117,10 @@ export default function AladinLiteMap({
   const [selectedStarCoords, setSelectedStarCoords] = useState(null);
   const [showStarHud, setShowStarHud] = useState(false);
   const [currentFoV, setCurrentFoV] = useState(1.5);
+  const [showSimbadLabels, setShowSimbadLabels] = useState(true);
+  const [hoveredStar, setHoveredStar] = useState(null);
+  const [cursorTooltip, setCursorTooltip] = useState(null);
+  const [isLoadingSimbad, setIsLoadingSimbad] = useState(false);
 
   // 1. Dynamic Script Loader for Aladin Lite
   useEffect(() => {
@@ -248,19 +269,19 @@ export default function AladinLiteMap({
           }
         });
 
-        // Keep FOV safely clamped to <= 30°
+        // Zoom change handler: freely allow 0.05° to 180° with auto-switch to AIT for fov > 45
         if (typeof aladin.on === 'function') {
           aladin.on('zoomChanged', (fov) => {
             if (typeof fov === 'number') {
-              if (fov > 30) {
-                aladin.setFoV(30);
-                setCurrentFoV(30);
+              setCurrentFoV(fov);
+              if (fov > 45) {
+                if (typeof aladin.setProjection === 'function') {
+                  aladin.setProjection('AIT');
+                }
               } else {
-                setCurrentFoV(fov);
-              }
-              // Always guarantee TAN projection
-              if (typeof aladin.setProjection === 'function') {
-                aladin.setProjection('TAN');
+                if (typeof aladin.setProjection === 'function') {
+                  aladin.setProjection('TAN');
+                }
               }
             }
           });
@@ -288,6 +309,75 @@ export default function AladinLiteMap({
         presetsCatalogRef.current = presetsCatalog;
         aladin.addCatalog(presetsCatalog);
 
+        // Layer 3: Live SIMBAD Interactive Astronomical Stars Catalog
+        const simbadCatalog = window.A.catalog({
+          name: 'SIMBAD Stars',
+          sourceSize: 14,
+          color: '#25D9F2',
+          shape: 'circle',
+          onClick: 'showPopup',
+        });
+        simbadCatalogRef.current = simbadCatalog;
+        aladin.addCatalog(simbadCatalog);
+
+        // Hover on Any Astronomical Object (VIP Target, Preset, or SIMBAD Star)
+        aladin.on('objectHovered', (obj) => {
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+          }
+
+          if (!obj) {
+            hoverTimeoutRef.current = setTimeout(() => {
+              setHoveredStar(null);
+            }, 300);
+            return;
+          }
+
+          const simbad = obj.data?.simbadData;
+          const targetData = obj.data?.targetData || obj.data;
+
+          let name = 'Unknown Star';
+          let type = 'Stellar Target';
+          let spType = null;
+          let starRa = typeof obj.ra === 'number' ? obj.ra : null;
+          let starDec = typeof obj.dec === 'number' ? obj.dec : null;
+          let pmra = null;
+          let pmdec = null;
+          let plx = null;
+
+          if (simbad) {
+            name = cleanStarName(simbad.main_id);
+            type = formatSimbadOtype(simbad.otype, simbad.otype_txt);
+            spType = simbad.sp_type || null;
+            starRa = simbad.ra ?? starRa;
+            starDec = simbad.dec ?? starDec;
+            pmra = simbad.pmra;
+            pmdec = simbad.pmdec;
+            plx = simbad.plx_value;
+          } else if (targetData) {
+            name = formatTargetName(targetData.name || targetData.nombre || targetData.id, targetData.id);
+            type = formatTargetType(targetData.type, targetData.id);
+            starRa = targetData.ra ?? starRa;
+            starDec = targetData.dec ?? starDec;
+          }
+
+          setHoveredStar({
+            name,
+            type,
+            spType,
+            ra: starRa,
+            dec: starDec,
+            pmra,
+            pmdec,
+            plx,
+            isVip: !!targetData && !targetData.isPreset && !simbad,
+            isPreset: !!targetData?.isPreset,
+            isSimbad: !!simbad,
+            rawObj: obj,
+          });
+        });
+
         // Click on Catalog Marker
         aladin.on('objectClicked', (obj) => {
           isObjectClickRef.current = true;
@@ -296,7 +386,25 @@ export default function AladinLiteMap({
           }, 400);
 
           if (!obj) return;
+          const simbad = obj.data?.simbadData;
           const targetData = obj.data?.targetData || obj.data;
+
+          if (simbad) {
+            const starName = cleanStarName(simbad.main_id);
+            setActivePresetId(null);
+            setShowPopup(false);
+            setSelectedStarCoords({ ra: simbad.ra, dec: simbad.dec });
+            setShowStarHud(false);
+            if (aladinRef.current && simbad.ra && simbad.dec) {
+              aladinRef.current.gotoRaDec(simbad.ra, simbad.dec);
+              aladinRef.current.setFoV(0.5);
+              setCurrentFoV(0.5);
+            }
+            onFreeSkyClick(simbad.ra, simbad.dec, starName);
+            onAutoScroll?.();
+            return;
+          }
+
           if (targetData) {
             if (targetData.isPreset) {
               setActivePresetId(targetData.id);
@@ -304,8 +412,9 @@ export default function AladinLiteMap({
               if (aladinRef.current && targetData.ra && targetData.dec) {
                 aladinRef.current.gotoRaDec(targetData.ra, targetData.dec);
                 aladinRef.current.setFoV(0.5);
+                setCurrentFoV(0.5);
               }
-              onFreeSkyClick(targetData.ra, targetData.dec);
+              onFreeSkyClick(targetData.ra, targetData.dec, targetData.name);
               onAutoScroll?.();
             } else {
               setActivePresetId(null);
@@ -313,6 +422,7 @@ export default function AladinLiteMap({
               if (aladinRef.current && targetData.ra && targetData.dec) {
                 aladinRef.current.gotoRaDec(targetData.ra, targetData.dec);
                 aladinRef.current.setFoV(0.5);
+                setCurrentFoV(0.5);
               }
               onSelectTarget(tid);
               setShowPopup(true);
@@ -320,6 +430,68 @@ export default function AladinLiteMap({
             }
           }
         });
+
+        // Precise Real-Time MouseMove Star Proximity Tracker (< 18px radius)
+        const handleMouseMove = (e) => {
+          if (!container || !catalogedStarsRef.current.length || !aladinRef.current?.world2pix) return;
+          const rect = container.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+
+          let nearestStar = null;
+          let minDistance = 18; // 18px proximity radius
+
+          for (const star of catalogedStarsRef.current) {
+            if (typeof star.ra !== 'number' || typeof star.dec !== 'number') continue;
+            try {
+              const pix = aladinRef.current.world2pix(star.ra, star.dec);
+              if (pix && typeof pix[0] === 'number' && typeof pix[1] === 'number' && !isNaN(pix[0]) && !isNaN(pix[1])) {
+                const d = Math.hypot(pix[0] - mouseX, pix[1] - mouseY);
+                if (d < minDistance) {
+                  minDistance = d;
+                  nearestStar = star;
+                }
+              }
+            } catch (err) {
+              // Out of projection boundary
+            }
+          }
+
+          if (nearestStar) {
+            cursorTooltipRef.current = nearestStar;
+            setCursorTooltip({
+              star: nearestStar,
+              x: mouseX,
+              y: mouseY,
+            });
+          } else {
+            cursorTooltipRef.current = null;
+            setCursorTooltip(null);
+          }
+        };
+
+        const handleMouseLeave = () => {
+          cursorTooltipRef.current = null;
+          setCursorTooltip(null);
+        };
+
+        container.addEventListener('mousemove', handleMouseMove);
+        container.addEventListener('mouseleave', handleMouseLeave);
+
+        // Debounced Live Catalog query on camera move
+        if (typeof aladin.on === 'function') {
+          aladin.on('positionChanged', () => {
+            if (positionTimeoutRef.current) clearTimeout(positionTimeoutRef.current);
+            positionTimeoutRef.current = setTimeout(() => {
+              if (aladinRef.current?.getRaDec) {
+                const coords = aladinRef.current.getRaDec();
+                if (coords && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+                  loadSimbadStarsForCoords(coords[0], coords[1]);
+                }
+              }
+            }, 400);
+          });
+        }
 
         // Pointer Drag Filter
         container.addEventListener('pointerdown', (e) => {
@@ -341,6 +513,19 @@ export default function AladinLiteMap({
         aladin.on('click', (ev) => {
           if (isObjectClickRef.current || wasDraggingRef.current) return;
           if (!ev) return;
+
+          // If clicked near a star in hover radius (< 18px), select it directly!
+          if (cursorTooltipRef.current) {
+            const s = cursorTooltipRef.current;
+            if (s.isVip && s.id) {
+              onSelectTarget(s.id);
+            } else {
+              onFreeSkyClick(s.ra, s.dec, s.name.replace(/^★\s*/, ''));
+            }
+            onAutoScroll?.();
+            return;
+          }
+
           let clickedRa, clickedDec;
 
           if (typeof ev.ra === 'number' && typeof ev.dec === 'number' && !isNaN(ev.ra) && !isNaN(ev.dec)) {
@@ -370,7 +555,7 @@ export default function AladinLiteMap({
               aladin.setFoV(0.5);
               setCurrentFoV(0.5);
             }
-            onFreeSkyClick(clickedRa, clickedDec);
+            onFreeSkyClick(clickedRa, clickedDec, `Sky RA ${clickedRa.toFixed(4)}°`);
             onAutoScroll?.();
           }
         });
@@ -389,8 +574,10 @@ export default function AladinLiteMap({
       const sources = targets
         .filter((t) => typeof t.ra === 'number' && typeof t.dec === 'number')
         .map((t) => {
-          const title = t.name || t.nombre || t.id;
-          const desc = `${t.type || 'Featured Target'} (RA: ${t.ra.toFixed(4)}°, DEC: ${t.dec.toFixed(4)}°)`;
+          const tid = t.id || t.tid || t.target_id;
+          const title = formatTargetName(t.name || t.nombre, tid);
+          const typeStr = formatTargetType(t.type, tid);
+          const desc = `${typeStr} (RA: ${t.ra.toFixed(4)}°, DEC: ${t.dec.toFixed(4)}°)`;
           if (window.A.marker) {
             return window.A.marker(t.ra, t.dec, {
               popupTitle: title,
@@ -444,6 +631,180 @@ export default function AladinLiteMap({
     }
   }, [isScriptLoaded]);
 
+  // Synchronize unified star registry for ultra-fast < 18px hover detection
+  const syncCatalogedStars = useCallback((extraStars = []) => {
+    const starsMap = new Map();
+
+    // 1. VIP Targets (Barnard, WISE 0855, Epsilon Indi B, RW Aurigae, R Draconis)
+    (targets || []).forEach((t) => {
+      if (typeof t.ra === 'number' && typeof t.dec === 'number') {
+        const tid = t.id || t.tid || t.target_id;
+        const cleanName = formatTargetName(t.name || t.nombre, tid);
+        starsMap.set(`${t.ra.toFixed(4)}_${t.dec.toFixed(4)}`, {
+          name: cleanName.startsWith('★') ? cleanName : `★ ${cleanName}`,
+          type: formatTargetType(t.type, tid),
+          mag: t.distance_ly ? `~${t.distance_ly} ly` : null,
+          ra: t.ra,
+          dec: t.dec,
+          isVip: true,
+          id: tid,
+        });
+      }
+    });
+
+    // 2. Verified Sky Sector Presets
+    IRSA_COVERAGE_PRESETS.forEach((p) => {
+      starsMap.set(`${p.ra.toFixed(4)}_${p.dec.toFixed(4)}`, {
+        name: `★ ${p.shortName}`,
+        type: p.tag,
+        mag: null,
+        ra: p.ra,
+        dec: p.dec,
+        isPreset: true,
+        id: p.id,
+      });
+    });
+
+    // 3. Live SIMBAD / VizieR Catalog Stars
+    (extraStars || []).forEach((s) => {
+      const key = `${s.ra.toFixed(4)}_${s.dec.toFixed(4)}`;
+      if (!starsMap.has(key)) {
+        const cleanName = cleanStarName(s.main_id || s.name);
+        starsMap.set(key, {
+          name: cleanName.startsWith('★') ? cleanName : `★ ${cleanName}`,
+          type: formatSimbadOtype(s.otype, s.otype_txt),
+          mag: s.mag || (s.plx_value > 0 ? `${(1000 / s.plx_value * 3.26).toFixed(1)} ly` : null),
+          ra: s.ra,
+          dec: s.dec,
+          isSimbad: true,
+          id: null,
+        });
+      }
+    });
+
+    catalogedStarsRef.current = Array.from(starsMap.values());
+  }, [targets]);
+
+  useEffect(() => {
+    syncCatalogedStars([]);
+  }, [syncCatalogedStars]);
+
+  // Query live SIMBAD stars for active sky coordinates
+  const loadSimbadStarsForCoords = useCallback(async (currentRa, currentDec) => {
+    if (
+      lastSimbadQueryRef.current &&
+      Math.abs(lastSimbadQueryRef.current.ra - currentRa) < 0.05 &&
+      Math.abs(lastSimbadQueryRef.current.dec - currentDec) < 0.05
+    ) {
+      return;
+    }
+    lastSimbadQueryRef.current = { ra: currentRa, dec: currentDec };
+
+    setIsLoadingSimbad(true);
+    try {
+      const query = `SELECT TOP 50 main_id, otype, otype_txt, sp_type, ra, dec, pmra, pmdec, plx_value FROM basic WHERE CONTAINS(POINT('ICRS',ra,dec),CIRCLE('ICRS',${currentRa},${currentDec},0.4))=1 ORDER BY nbref DESC`;
+      const encoded = encodeURIComponent(query);
+      const mirrors = [
+        `https://simbad.cfa.harvard.edu/simbad/sim-tap/sync?request=doQuery&lang=adql&format=json&query=${encoded}`,
+        `https://simbad.idia.ac.za/simbad/sim-tap/sync?request=doQuery&lang=adql&format=json&query=${encoded}`,
+      ];
+
+      let stars = [];
+      for (const mirrorUrl of mirrors) {
+        try {
+          const res = await fetch(mirrorUrl, { signal: AbortSignal.timeout(4000) });
+          if (!res.ok) continue;
+          const json = await res.json();
+          if (json && Array.isArray(json.data)) {
+            stars = json.data.map((row) => ({
+              main_id: row[0],
+              otype: row[1],
+              otype_txt: row[2],
+              sp_type: row[3],
+              ra: row[4],
+              dec: row[5],
+              pmra: row[6],
+              pmdec: row[7],
+              plx_value: row[8],
+            }));
+            break;
+          }
+        } catch (e) {
+          // fallback to next mirror
+        }
+      }
+
+      if (stars.length > 0) {
+        syncCatalogedStars(stars);
+        const sources = stars
+          .filter((s) => typeof s.ra === 'number' && typeof s.dec === 'number')
+          .map((s) => {
+            const cleanName = cleanStarName(s.main_id);
+            const typeStr = formatSimbadOtype(s.otype, s.otype_txt);
+            const desc = `${typeStr}${s.sp_type ? ` [${s.sp_type}]` : ''} (RA: ${s.ra.toFixed(4)}°, DEC: ${s.dec.toFixed(4)}°)`;
+            return window.A.source(s.ra, s.dec, {
+              name: cleanName,
+              simbadData: s,
+              popupTitle: cleanName,
+              popupDesc: desc,
+            });
+          });
+
+        simbadSourcesRef.current = sources;
+        if (simbadCatalogRef.current) {
+          simbadCatalogRef.current.clear();
+          if (showSimbadLabels) {
+            simbadCatalogRef.current.addSources(sources);
+          }
+        }
+        if (aladinRef.current?.view?.requestRedraw) {
+          aladinRef.current.view.requestRedraw();
+        }
+      }
+    } catch (err) {
+      console.warn('SIMBAD live query notice:', err);
+    } finally {
+      setIsLoadingSimbad(false);
+    }
+  }, [showSimbadLabels, syncCatalogedStars]);
+
+  // 5. Query and Update Live SIMBAD Astronomical Catalog
+  useEffect(() => {
+    if (!isScriptLoaded || !window.A || !simbadCatalogRef.current) return;
+    const currentRa = typeof ra === 'number' && !isNaN(ra) ? ra : 269.4521;
+    const currentDec = typeof dec === 'number' && !isNaN(dec) ? dec : 4.6933;
+
+    const timer = setTimeout(() => {
+      loadSimbadStarsForCoords(currentRa, currentDec);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [ra, dec, isScriptLoaded, loadSimbadStarsForCoords]);
+
+  // Toggle SIMBAD layer visibility
+  const handleToggleSimbad = () => {
+    const nextVal = !showSimbadLabels;
+    setShowSimbadLabels(nextVal);
+    if (simbadCatalogRef.current) {
+      try {
+        simbadCatalogRef.current.clear();
+        if (nextVal && simbadSourcesRef.current?.length > 0) {
+          simbadCatalogRef.current.addSources(simbadSourcesRef.current);
+          if (typeof simbadCatalogRef.current.show === 'function') {
+            simbadCatalogRef.current.show();
+          }
+        } else if (!nextVal && typeof simbadCatalogRef.current.hide === 'function') {
+          simbadCatalogRef.current.hide();
+        }
+        if (aladinRef.current?.view?.requestRedraw) {
+          aladinRef.current.view.requestRedraw();
+        }
+      } catch (err) {
+        console.warn('Error toggling SIMBAD visibility:', err);
+      }
+    }
+  };
+
   // 5. Navigate camera when RA / DEC props update
   useEffect(() => {
     if (typeof ra === 'number' && typeof dec === 'number' && !isNaN(ra) && !isNaN(dec)) {
@@ -451,7 +812,9 @@ export default function AladinLiteMap({
       if (aladinRef.current) {
         try {
           aladinRef.current.gotoRaDec(ra, dec);
-          aladinRef.current.setProjection('TAN');
+          if (currentFoV <= 45) {
+            aladinRef.current.setProjection('TAN');
+          }
           aladinRef.current.setFoV(0.5);
           setCurrentFoV(0.5);
         } catch (err) {
@@ -473,18 +836,20 @@ export default function AladinLiteMap({
     }
   }, [survey]);
 
-  // Safe Camera-Only Galactic Center View (15° FOV in TAN, ZERO BACKEND CALLS)
+  // Camera-Only Galactic Center View (110° FOV in AIT, Whole Galaxy Panorama without bounce)
   const handleGoGalacticCenter = () => {
     setActivePresetId(null);
     setShowPopup(false);
     setShowStarHud(false);
+    cursorTooltipRef.current = null;
+    setCursorTooltip(null);
 
     if (aladinRef.current) {
       try {
-        aladinRef.current.setProjection('TAN');
+        aladinRef.current.setProjection('AIT');
         aladinRef.current.gotoRaDec(265.4405, -30.3439);
-        aladinRef.current.setFoV(15);
-        setCurrentFoV(15);
+        aladinRef.current.setFoV(110);
+        setCurrentFoV(110);
         if (aladinRef.current.view?.requestRedraw) {
           aladinRef.current.view.requestRedraw();
         }
@@ -541,24 +906,67 @@ export default function AladinLiteMap({
         </div>
 
         {/* Tactical FOV & Camera Actions */}
-        <div className="flex items-center gap-2 font-mono text-xs">
-          {/* Galactic Center View Button (Safe 15° TAN View) */}
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+          
+          {/* Survey Selector (Strictly in Aladin Lite Map Header) */}
+          <div className="flex items-center gap-1.5 bg-[#080D1B]/80 border border-white/10 rounded-xl px-2.5 py-1 text-slate-300 font-sans">
+            <Globe className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <select
+              value={survey?.includes('allWISE') ? 'P/allWISE/color' : 'P/2MASS/color'}
+              onChange={(e) => onChangeSurvey && onChangeSurvey(e.target.value)}
+              className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+            >
+              <option value="P/2MASS/color" className="bg-[#080D1B]">2MASS (Near-IR)</option>
+              <option value="P/allWISE/color" className="bg-[#080D1B]">AllWISE (Mid-IR)</option>
+            </select>
+          </div>
+
+          {/* Galactic Center View Button (Whole Galaxy 110° AIT View) */}
           <button
             type="button"
             onClick={handleGoGalacticCenter}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 hover:border-amber-400/50 text-slate-200 transition-all cursor-pointer font-sans active:scale-95"
-            title="Safe wide-angle view of the Milky Way core (15° FOV in TAN)"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 hover:border-amber-400/50 text-slate-200 transition-all cursor-pointer font-sans active:scale-95"
+            title="Panoramic view of the Milky Way galaxy (110° FOV in AIT)"
           >
-            <Compass className="w-3.5 h-3.5 text-amber-400" />
-            <span className="font-semibold text-xs">Galactic Core (15°)</span>
+            <Compass className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="font-semibold text-xs hidden sm:inline">Galactic Core (110°)</span>
+            <span className="font-semibold text-xs sm:hidden">Core</span>
           </button>
 
-          {/* Instrument Readout */}
-          <div className="flex items-center gap-2 bg-[#080D1B]/80 border border-white/10 rounded-xl px-3 py-1.5 text-slate-300 tabular-nums">
+          {/* Instrument FOV Readout */}
+          <div className="flex items-center gap-2 bg-[#080D1B]/80 border border-white/10 rounded-xl px-2.5 py-1 text-slate-300 tabular-nums">
             <span className="text-cyan-400 font-bold">FOV: {currentFoV.toFixed(1)}°</span>
-            <span className="text-white/20">|</span>
-            <span className="text-slate-400 font-semibold">{currentSurveyName}</span>
           </div>
+
+          {/* Interactive Star Labels (SIMBAD) Switch: ON / OFF */}
+          <button
+            type="button"
+            onClick={handleToggleSimbad}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-semibold transition-all cursor-pointer font-sans active:scale-95 ${
+              showSimbadLabels
+                ? 'bg-cyan-500/15 border-cyan-400/50 text-cyan-300 shadow-[0_0_12px_rgba(37,217,242,0.3)]'
+                : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+            }`}
+            title="Toggle live SIMBAD astronomical star labels on sky map"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${showSimbadLabels ? 'text-cyan-400 fill-cyan-400/30' : 'text-slate-400'}`} />
+            <span>Star Labels (SIMBAD): <strong className={showSimbadLabels ? 'text-white' : 'text-slate-400'}>{showSimbadLabels ? 'ON' : 'OFF'}</strong></span>
+            {isLoadingSimbad && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping ml-0.5" />}
+          </button>
+
+          {/* IRSA Ingestion Trigger Modal Button (Expert Mode Only) */}
+          {isExpertMode && onOpenIngestModal && (
+            <button
+              type="button"
+              onClick={onOpenIngestModal}
+              disabled={isIngesting}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl border border-amber-400/50 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-semibold transition-all cursor-pointer active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.2)] disabled:opacity-50 font-sans"
+              title="Download customized multi-epoch FITS cubes directly from NASA IRSA"
+            >
+              <DownloadCloud className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>IRSA Ingest</span>
+            </button>
+          )}
         </div>
 
       </div>
@@ -572,7 +980,7 @@ export default function AladinLiteMap({
         {targets.map((t) => {
           const tid = t.id || t.tid || t.target_id;
           const isSelected = activeTarget && (activeTarget.id === tid || activeTarget.target_id === tid);
-          const displayName = t.name || t.nombre || tid;
+          const displayName = formatTargetName(t.name || t.nombre, tid);
 
           return (
             <button
@@ -641,6 +1049,143 @@ export default function AladinLiteMap({
           </div>
         )}
 
+        {/* Floating Tooltip right next to cursor on < 18px star hover */}
+        {cursorTooltip && (
+          <div
+            className="absolute z-50 pointer-events-none select-none animate-fadeIn transition-transform duration-75"
+            style={{
+              left: `${Math.min(cursorTooltip.x + 14, 520)}px`,
+              top: `${Math.max(10, cursorTooltip.y - 75)}px`,
+            }}
+          >
+            <div className="bg-[#080D1B]/95 backdrop-blur-md border border-cyan-400/80 rounded-xl px-3 py-2 shadow-[0_0_25px_rgba(37,217,242,0.45)] text-slate-100 font-sans min-w-[210px] max-w-[280px]">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-white border-b border-white/10 pb-1 mb-1">
+                <span className="text-cyan-400 font-black">★</span>
+                <span className="truncate">{cursorTooltip.star.name.replace(/^★\s*/, '')}</span>
+              </div>
+              <div className="text-[11px] space-y-0.5 text-slate-300">
+                <div className="flex justify-between items-center text-slate-300">
+                  <span className="text-slate-400">Type:</span>
+                  <span className="text-cyan-300 font-semibold truncate max-w-[150px]">{cursorTooltip.star.type}</span>
+                </div>
+                {cursorTooltip.star.mag && (
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="text-slate-400">Magnitude:</span>
+                    <span className="text-amber-300 font-mono">{cursorTooltip.star.mag}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                  <span>RA {cursorTooltip.star.ra.toFixed(4)}°</span>
+                  <span>DEC {cursorTooltip.star.dec > 0 ? `+${cursorTooltip.star.dec.toFixed(4)}` : cursorTooltip.star.dec.toFixed(4)}°</span>
+                </div>
+              </div>
+              <div className="mt-1.5 pt-1 border-t border-white/10 text-[9.5px] font-mono text-cyan-300/90 font-medium">
+                Click to load FITS & 102-Band Spectrum
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Instant Floating Cosmic Star HUD (Live on Hover) */}
+        {hoveredStar && (
+          <div className="absolute top-4 left-4 max-w-[340px] w-full z-20 bg-[#0F1A34]/95 backdrop-blur-xl border border-cyan-400/60 rounded-2xl p-4 shadow-[0_0_30px_rgba(37,217,242,0.25)] text-slate-100 animate-fadeIn font-sans pointer-events-auto">
+            <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-2 mb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                <div>
+                  <span className="text-[10px] font-mono tracking-wider uppercase text-cyan-400 font-bold block">
+                    Star Quick Look // Live Catalog
+                  </span>
+                  <h3 className="text-sm font-black text-white tracking-tight truncate max-w-[210px]" title={hoveredStar.name}>
+                    {hoveredStar.name}
+                  </h3>
+                </div>
+              </div>
+              <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border font-bold uppercase shrink-0 ${
+                hoveredStar.isVip
+                  ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
+                  : hoveredStar.isPreset
+                    ? 'bg-purple-500/20 border-purple-400/50 text-purple-300'
+                    : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+              }`}>
+                {hoveredStar.isVip ? 'VIP Target' : hoveredStar.isPreset ? 'Active Sector' : 'SIMBAD Star'}
+              </span>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="text-slate-400">Class / Type:</span>
+                <span className="text-cyan-300 font-semibold text-right truncate max-w-[190px]" title={hoveredStar.type}>
+                  {hoveredStar.type}
+                </span>
+              </div>
+
+              {hoveredStar.spType && (
+                <div className="flex justify-between items-center text-slate-300">
+                  <span className="text-slate-400">Spectral Class:</span>
+                  <span className="text-amber-300 font-mono font-bold">{hoveredStar.spType}</span>
+                </div>
+              )}
+
+              {typeof hoveredStar.ra === 'number' && typeof hoveredStar.dec === 'number' && (
+                <>
+                  <div className="flex justify-between items-center text-slate-300 font-mono text-[11px]">
+                    <span className="text-slate-400 font-sans">Decimal RA/DEC:</span>
+                    <span className="text-slate-200">
+                      {hoveredStar.ra.toFixed(4)}°, {hoveredStar.dec > 0 ? `+${hoveredStar.dec.toFixed(4)}` : hoveredStar.dec.toFixed(4)}°
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-300 font-mono text-[10px]">
+                    <span className="text-slate-400 font-sans">J2000 Epoch:</span>
+                    <span className="text-cyan-400/90">{raDecToSexagesimal(hoveredStar.ra, hoveredStar.dec).fullStr.replace('J2000 ', '')}</span>
+                  </div>
+                </>
+              )}
+
+              {(hoveredStar.pmra !== null && hoveredStar.pmra !== undefined && hoveredStar.pmdec !== null && hoveredStar.pmdec !== undefined) && (
+                <div className="flex justify-between items-center text-slate-300 font-mono text-[10px]">
+                  <span className="text-slate-400 font-sans">Proper Motion:</span>
+                  <span className="text-amber-300/90">
+                    μ: {Math.hypot(hoveredStar.pmra, hoveredStar.pmdec).toFixed(1)} mas/yr
+                  </span>
+                </div>
+              )}
+
+              {hoveredStar.plx > 0 && (
+                <div className="flex justify-between items-center text-slate-300 font-mono text-[10px]">
+                  <span className="text-slate-400 font-sans">Parallax / Dist:</span>
+                  <span className="text-emerald-300">
+                    {(1000 / hoveredStar.plx * 3.26156).toFixed(1)} ly ({hoveredStar.plx.toFixed(2)} mas)
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Action to Run Discovery Pipeline */}
+            <div className="mt-3 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  if (hoveredStar.isVip && hoveredStar.rawObj?.data?.targetData?.id) {
+                    onSelectTarget(hoveredStar.rawObj.data.targetData.id);
+                  } else if (typeof hoveredStar.ra === 'number' && typeof hoveredStar.dec === 'number') {
+                    onFreeSkyClick(hoveredStar.ra, hoveredStar.dec, hoveredStar.name);
+                  }
+                  onAutoScroll?.();
+                  const targetDeck = document.getElementById('time-travel');
+                  if (targetDeck) {
+                    targetDeck.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+                className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-cyan-400 to-[#8B5CF6] hover:brightness-110 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-[0_0_12px_rgba(37,217,242,0.4)] cursor-pointer active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5 fill-slate-950 shrink-0" />
+                <span>Click to Run 3-Pillar Pipeline ↓</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Floating Star Info Card (Selected VIP Target) */}
         {activeTarget && showPopup && (
           <div className="absolute top-4 right-4 max-w-[320px] w-full z-20 bg-[#0F1A34]/95 backdrop-blur-xl border border-cyan-500/50 rounded-2xl p-4 shadow-2xl text-slate-100 animate-fadeIn font-sans">
@@ -648,7 +1193,7 @@ export default function AladinLiteMap({
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
                 <h3 className="text-sm font-bold text-white tracking-tight">
-                  {activeTarget.name || activeTarget.nombre || activeTarget.id}
+                  {formatTargetName(activeTarget.name || activeTarget.nombre, activeTarget.id)}
                 </h3>
               </div>
               <button
@@ -664,7 +1209,7 @@ export default function AladinLiteMap({
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-slate-300">
                 <span className="text-slate-400">Type / Class:</span>
-                <span className="text-cyan-300 font-semibold">{activeTarget.type || 'Stellar Target'}</span>
+                <span className="text-cyan-300 font-semibold">{formatTargetType(activeTarget.type, activeTarget.id)}</span>
               </div>
               {activeTarget.distance_ly && (
                 <div className="flex justify-between text-slate-300">
@@ -680,9 +1225,9 @@ export default function AladinLiteMap({
               </div>
             </div>
 
-            {activeTarget.description && (
+            {(activeTarget.description || activeTarget.id) && (
               <p className="text-[11px] text-slate-300 mt-2.5 pt-2 border-t border-white/10 leading-relaxed">
-                {activeTarget.description}
+                {formatTargetDescription(activeTarget.description, activeTarget.id)}
               </p>
             )}
 

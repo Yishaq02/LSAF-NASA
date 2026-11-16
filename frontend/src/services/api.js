@@ -205,7 +205,8 @@ export async function exploreSky({ ra, dec, target_id = null, mode = 'normal' })
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(6000)
   });
 
   if (!res.ok) {

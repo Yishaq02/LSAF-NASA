@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Video,
   Download,
+  DownloadCloud,
   Sliders,
   Layers,
   Crosshair,
@@ -19,6 +20,7 @@ import {
   Zap
 } from 'lucide-react';
 import { getEpochImageUrl, getDifference, exportAndDownloadMp4 } from '../services/api';
+import { formatTargetName } from '../utils/astroLabels';
 
 // Map aliases to backend target IDs
 const BACKEND_ID = {
@@ -51,6 +53,7 @@ export default function FlipbookViewer({
   onChangeEpochB,
   onPixelClick,
   onTriggerIngest,
+  onOpenIngestModal,
   isIngesting = false,
   isLoadingDiff = false,
   isLoadingSky = false,
@@ -231,7 +234,7 @@ export default function FlipbookViewer({
     setIsExportingVideo(true);
     setExportError(null);
     try {
-      const backendId = BACKEND_ID[targetId] || targetId || 'sky';
+      const backendId = BACKEND_ID[targetId] || 'sky';
       await exportAndDownloadMp4({
         target: backendId,
         mode,
@@ -259,6 +262,11 @@ export default function FlipbookViewer({
           <div>
             <h2 className="text-sm md:text-base font-bold text-white tracking-tight flex items-center gap-2">
               <span>Time Travel: Explore the Universe Through Time</span>
+              {targetId && (
+                <span className="text-[10px] font-mono tracking-wider px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 font-semibold truncate max-w-[200px]" title={targetId}>
+                  Target: {formatTargetName(targetId).toUpperCase()}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-400">
               Compare observations from different moments to reveal what has changed in the sky.
@@ -266,37 +274,70 @@ export default function FlipbookViewer({
           </div>
         </div>
 
-        {/* Prominent Motion Detector (NumPy Difference) Switch */}
-        <div className="flex items-center gap-1.5 bg-[#0F1A34] p-1 rounded-xl border border-white/10">
-          <button
-            type="button"
-            onClick={() => onChangeMode('normal')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              mode === 'normal'
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-[0_0_10px_rgba(37,217,242,0.4)]'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Temporal Flipbook
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangeMode('diff')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-              mode === 'diff'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(255,180,94,0.4)]'
-                : 'text-slate-400 hover:text-amber-300'
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span>Motion Detector (Difference)</span>
-          </button>
+        {/* Actions & Prominent Discovery Switch */}
+        <div className="flex flex-wrap items-center gap-2">
+          
+          {/* IRSA Ingestion Trigger Modal Button (Expert Mode Only) */}
+          {isExpertMode && onOpenIngestModal && (
+            <button
+              type="button"
+              onClick={onOpenIngestModal}
+              disabled={isIngesting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-400/50 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-semibold transition-all cursor-pointer active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.2)] disabled:opacity-50 font-sans"
+              title="Download customized multi-epoch FITS cubes directly from NASA IRSA"
+            >
+              <DownloadCloud className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>IRSA Ingest</span>
+            </button>
+          )}
+
+          {/* Pillar 1: High-Impact Motion Isolation Switch */}
+          <div className="flex items-center gap-1 bg-gradient-to-r from-[#142B52] to-[#0F1A34] p-1 rounded-2xl border border-white/15 shadow-lg">
+            <button
+              type="button"
+              onClick={() => onChangeMode('normal')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                mode === 'normal'
+                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-[0_0_15px_rgba(37,217,242,0.4)]'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Temporal Flipbook
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeMode('diff')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                mode === 'diff'
+                  ? 'bg-gradient-to-r from-[#FFB45E] via-amber-400 to-[#E879F9] text-slate-950 shadow-[0_0_20px_rgba(255,180,94,0.6)] animate-pulse'
+                  : 'text-amber-300/80 hover:text-amber-200 hover:bg-amber-500/10'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>✨ Motion Detector (NumPy Diff)</span>
+            </button>
+          </div>
+
         </div>
       </div>
 
-      {/* Main Image Stage */}
-      <div className="relative w-full aspect-square max-h-[460px] mx-auto bg-black rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center shadow-inner group">
+      {/* Main Image Stage (Illuminated Border in Motion Detector Mode) */}
+      <div
+        className={`relative w-full aspect-square max-h-[460px] mx-auto bg-black rounded-2xl overflow-hidden transition-all duration-300 flex items-center justify-center shadow-inner group ${
+          mode === 'diff'
+            ? 'border-2 border-[#FFB45E] shadow-[0_0_30px_rgba(255,180,94,0.35)] ring-1 ring-[#E879F9]/50'
+            : 'border border-white/10'
+        }`}
+      >
         
+        {/* Floating Discovery Pill: Pillar 1 Scientific Breakthrough */}
+        {mode === 'diff' && !computingDiff && !isLoadingDiff && !isLoadingSky && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3.5 py-1 rounded-full bg-gradient-to-r from-[#FFB45E]/95 via-amber-400/95 to-[#E879F9]/95 backdrop-blur-md border border-amber-200 text-slate-950 font-black text-[10px] md:text-[11px] uppercase tracking-wider shadow-[0_0_25px_rgba(255,180,94,0.7)] animate-pulse flex items-center gap-1.5 whitespace-nowrap">
+            <Sparkles className="w-3.5 h-3.5 fill-slate-950 shrink-0" />
+            <span>STATIC STARS CANCELLED (EPOCH B - EPOCH A) — ISOLATING MOVING ANOMALIES</span>
+          </div>
+        )}
+
         {/* Loading Spinner */}
         {(computingDiff || isLoadingDiff || isLoadingSky) && (
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-4 text-center">

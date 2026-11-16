@@ -4,7 +4,7 @@ import AladinLiteMap from './components/AladinLiteMap';
 import FlipbookViewer from './components/FlipbookViewer';
 import SpectrumChart from './components/SpectrumChart';
 import GaiaValidationPanel from './components/GaiaValidationPanel';
-import ActiveMetadataCard from './components/ActiveMetadataCard';
+import IngestModal from './components/IngestModal';
 import DeepLoadingOverlay from './components/DeepLoadingOverlay';
 import BackendConnectionBoundary from './components/BackendConnectionBoundary';
 import {
@@ -14,7 +14,23 @@ import {
   exploreSky,
   ingestTarget
 } from './services/api';
-import { AlertTriangle, Info, ArrowUp, Sparkles, Orbit, Database, Radio, Globe } from 'lucide-react';
+import {
+  AlertTriangle,
+  Info,
+  ArrowUp,
+  Sparkles,
+  Orbit,
+  Database,
+  Radio,
+  Globe,
+  Copy,
+  Check
+} from 'lucide-react';
+import {
+  formatTargetName,
+  formatTargetType,
+  formatTargetDescription
+} from './utils/astroLabels';
 
 export default function App() {
   // Read URL query parameters on initial boot
@@ -44,6 +60,7 @@ export default function App() {
   // Application Core State
   const [targets, setTargets] = useState([]);
   const [selectedTargetId, setSelectedTargetId] = useState(initialParams.target || 'barnard');
+  const [customStarName, setCustomStarName] = useState(null);
   const [ra, setRa] = useState(initialParams.ra !== null ? initialParams.ra : BARNARD_RA);
   const [dec, setDec] = useState(initialParams.dec !== null ? initialParams.dec : BARNARD_DEC);
   const [mode, setMode] = useState(initialParams.mode);
@@ -74,6 +91,29 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [noticeMessage, setNoticeMessage] = useState(null);
 
+  // Ingestion Modal State
+  const [showIngestModal, setShowIngestModal] = useState(false);
+
+  // Intelligent Scroll-to-Top Visibility
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Target Telemetry Coordinates Copy State
+  const [coordsCopied, setCoordsCopied] = useState(false);
+  const handleCopyCoords = useCallback(() => {
+    if (ra === undefined || dec === undefined) return;
+    const text = `RA: ${ra}, DEC: ${dec}`;
+    navigator.clipboard.writeText(text);
+    setCoordsCopied(true);
+    setTimeout(() => setCoordsCopied(false), 2000);
+  }, [ra, dec]);
+
   // Reference for Station 2 auto-scroll
   const analysisSectionRef = useRef(null);
 
@@ -95,6 +135,7 @@ export default function App() {
   // VIP Target selection handler
   const handleSelectVipTarget = useCallback((tid) => {
     isExploringSkyRef.current = false;
+    setCustomStarName(null);
     setFrames([]);
     setInspectedPixel(null);
     setSelectedTargetId(tid || null);
@@ -154,12 +195,8 @@ export default function App() {
   useEffect(() => {
     if (!selectedTargetId) return;
 
-    if (isExploringSkyRef.current) return;
-
     const isVip = targets.some(t => (t.id || t.tid || t.target_id) === selectedTargetId) || selectedTargetId === 'barnard';
     if (!isVip) return;
-
-    if (frames && frames.length > 0) return;
 
     let isMounted = true;
     const targetObj = targets.find(t => (t.id || t.tid || t.target_id) === selectedTargetId);
@@ -170,6 +207,8 @@ export default function App() {
 
     setFrames([]);
     setInspectedPixel(null);
+    setIsLoadingSky(false);
+    setIsLoadingDeep(false);
     setIsLoadingSpectrum(true);
 
     getFitsManifest(selectedTargetId)
@@ -205,10 +244,11 @@ export default function App() {
   }, [selectedTargetId, targets]);
 
   // 4. Handle Free Sky Click in Aladin Lite
-  const handleFreeSkyClick = useCallback(async (clickedRa, clickedDec) => {
+  const handleFreeSkyClick = useCallback(async (clickedRa, clickedDec, starName = null) => {
     triggerAutoScrollToAnalysis();
     isExploringSkyRef.current = true;
     setSelectedTargetId(null);
+    setCustomStarName(starName || null);
     setRa(clickedRa);
     setDec(clickedDec);
     setInspectedPixel(null);
@@ -343,33 +383,22 @@ export default function App() {
     }
   };
 
-  const activeTargetObj = targets.find(t => (t.id || t.tid || t.target_id) === selectedTargetId);
+  const activeTargetObj = targets.find(t => (t.id || t.tid || t.target_id) === selectedTargetId) || (customStarName ? {
+    id: customStarName,
+    name: customStarName,
+    type: 'SIMBAD Astronomical Star',
+    ra,
+    dec,
+    description: `Real astronomical object identified in SIMBAD catalog at RA ${ra?.toFixed(4)}°, DEC ${dec?.toFixed(4)}°. Cross-checked with NASA IRSA time-domain observations.`
+  } : null);
 
   return (
     <BackendConnectionBoundary>
       <div className="min-h-screen bg-[#080D1B] text-slate-100 flex flex-col font-sans selection:bg-cyan-400 selection:text-slate-950">
-        
-        {/* Global Loading Overlay */}
-        <DeepLoadingOverlay
-          isLoading={isLoadingDeep}
-          message={deepLoadingMessage}
-          submessage="Streaming live infrared telemetry directly from NASA IRSA to local server"
-        />
 
-        {/* Modern Top Header */}
+        {/* Modern Top Header (Decluttered) */}
         <Header
-          targets={targets}
-          selectedTargetId={selectedTargetId}
-          onSelectTarget={handleSelectVipTarget}
-          onTriggerIngest={handleTriggerIngest}
-          isIngesting={isIngesting}
           backendConnected={backendConnected}
-          survey={survey}
-          onChangeSurvey={setSurvey}
-          ra={ra}
-          dec={dec}
-          detector={selectedDetector}
-          onChangeDetector={setSelectedDetector}
           isExpertMode={isExpertMode}
           onToggleExpertMode={setIsExpertMode}
         />
@@ -412,14 +441,6 @@ export default function App() {
           {/* STAGE 1: Full Viewport 1 — Explore the Universe */}
           <section id="explore-universe" className="min-h-[calc(100vh-80px)] flex flex-col justify-between space-y-4">
             
-            {/* Friendly Discovery Welcome Banner */}
-            <div className="bg-gradient-to-r from-[#142B52]/60 via-[#142B52]/80 to-[#142B52]/60 border border-white/10 rounded-2xl px-4 py-3 text-center text-xs md:text-sm text-cyan-200 tracking-wide flex items-center justify-center gap-2 shadow-lg">
-              <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse shrink-0" />
-              <span>
-                <strong>Stage 1:</strong> Explore the infrared universe. Select a featured star or click any point in the sky to begin ↓
-              </span>
-            </div>
-
             {/* Aladin Lite v3 Celestial Horizon Card */}
             <div className="flex-1 w-full flex flex-col">
               <AladinLiteMap
@@ -432,6 +453,7 @@ export default function App() {
                 onSelectTarget={handleSelectVipTarget}
                 onFreeSkyClick={handleFreeSkyClick}
                 onTriggerIngest={handleTriggerIngest}
+                onOpenIngestModal={() => setShowIngestModal(true)}
                 isIngesting={isIngesting}
                 isLoadingSky={isLoadingSky}
                 onAutoScroll={triggerAutoScrollToAnalysis}
@@ -444,28 +466,74 @@ export default function App() {
           <section
             ref={analysisSectionRef}
             id="time-travel"
-            className="min-h-screen pt-6 flex flex-col gap-6 border-t border-white/10"
+            className="min-h-screen pt-6 flex flex-col gap-5 border-t border-white/10"
           >
             {/* Stage Navigation Header */}
-            <div className="flex items-center justify-between bg-[#142B52]/40 border border-white/10 rounded-2xl px-4 py-2 text-xs">
+            <div className="flex items-center justify-between bg-[#142B52]/40 border border-white/10 rounded-2xl px-4 py-2.5 text-xs">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 <span className="font-bold text-white tracking-wide">
                   Stage 2: Time-Domain & Spectroscopic Laboratory
                 </span>
-                <span className="text-xs text-cyan-300 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full font-medium">
-                  {selectedTargetId ? `Target: ${selectedTargetId.toUpperCase()}` : `Sky: RA ${ra?.toFixed(4)}° DEC ${dec?.toFixed(4)}°`}
+                <span className="text-xs text-cyan-300 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full font-medium">
+                  {customStarName
+                    ? `Target: ${customStarName.toUpperCase()}`
+                    : selectedTargetId
+                      ? `Target: ${formatTargetName(activeTargetObj?.name || activeTargetObj?.nombre, selectedTargetId).toUpperCase()}`
+                      : `Sky: RA ${ra?.toFixed(4)}° DEC ${dec?.toFixed(4)}°`}
                 </span>
               </div>
 
               <button
                 type="button"
                 onClick={handleScrollToTop}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-semibold text-cyan-300 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/50 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold text-cyan-300 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/50 transition-all cursor-pointer"
               >
                 <ArrowUp className="w-3.5 h-3.5" />
                 <span>Back to Sky Map</span>
               </button>
+            </div>
+
+            {/* Target Telemetry Strip (Merged from redundant card) */}
+            <div className="bg-[#080D1B]/90 border border-white/10 rounded-2xl p-3 md:px-5 md:py-3 flex flex-wrap items-center justify-between gap-3 text-xs font-sans shadow-lg">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center gap-1.5 font-bold text-white text-sm">
+                  <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>{customStarName || formatTargetName(activeTargetObj?.name || activeTargetObj?.nombre, selectedTargetId)}</span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 font-semibold">
+                  {customStarName ? 'SIMBAD Star (Real Astronomical Object)' : formatTargetType(activeTargetObj?.type, selectedTargetId)}
+                </span>
+                {activeTargetObj?.distance_ly && (
+                  <span className="text-[11px] text-amber-300 font-mono hidden sm:inline">
+                    • {activeTargetObj.distance_ly} light-years
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3.5 text-xs font-mono text-slate-300">
+                <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">
+                  <span className="text-slate-400 font-sans text-[11px]">RA:</span>
+                  <span className="text-cyan-300 font-bold">{typeof ra === 'number' ? `${ra.toFixed(4)}°` : '--'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">
+                  <span className="text-slate-400 font-sans text-[11px]">DEC:</span>
+                  <span className="text-cyan-300 font-bold">{typeof dec === 'number' ? `${dec > 0 ? `+${dec.toFixed(4)}` : dec.toFixed(4)}°` : '--'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 hidden md:flex">
+                  <span className="text-slate-400 font-sans text-[11px]">Epochs:</span>
+                  <span className="text-purple-300 font-bold">{frames.length > 0 ? frames.length : (Array.isArray(manifest) ? manifest.length : manifest?.epochs?.length || 0)} FITS</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyCoords}
+                  className="flex items-center gap-1 px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/40 text-slate-300 text-[11px] font-sans transition-colors cursor-pointer active:scale-95"
+                  title="Copy celestial coordinates to clipboard"
+                >
+                  {coordsCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                  <span>{coordsCopied ? 'Copied' : 'Copy Coords'}</span>
+                </button>
+              </div>
             </div>
 
             {/* 2 Analytical Columns (50% / 50% Desktop Layout) */}
@@ -474,7 +542,7 @@ export default function App() {
               {/* LEFT COLUMN: Time Travel (Flipbook & Motion Detector) */}
               <div className="lg:col-span-6 flex flex-col gap-6">
                 <FlipbookViewer
-                  targetId={selectedTargetId}
+                  targetId={customStarName || selectedTargetId}
                   ra={ra}
                   dec={dec}
                   manifest={manifest}
@@ -491,6 +559,7 @@ export default function App() {
                   onChangeEpochB={setEpochB}
                   onPixelClick={handlePixelClick}
                   onTriggerIngest={handleTriggerIngest}
+                  onOpenIngestModal={() => setShowIngestModal(true)}
                   isIngesting={isIngesting}
                   isLoadingSky={isLoadingSky}
                   isExpertMode={isExpertMode}
@@ -503,7 +572,7 @@ export default function App() {
                 <div id="infrared-spectra">
                   <SpectrumChart
                     spectrumData={spectrumData}
-                    targetId={selectedTargetId}
+                    targetId={customStarName || selectedTargetId}
                     ra={ra}
                     dec={dec}
                     inspectedPixel={inspectedPixel}
@@ -514,24 +583,13 @@ export default function App() {
                   />
                 </div>
 
-                {/* Sub-grid: Gaia DR3 Validation & Mission Metadata */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  <div id="gaia-validation">
-                    <GaiaValidationPanel
-                      targetId={selectedTargetId}
-                      ra={ra}
-                      dec={dec}
-                      isExpertMode={isExpertMode}
-                    />
-                  </div>
-
-                  <ActiveMetadataCard
-                    targetId={selectedTargetId}
+                {/* Full-width Gaia DR3 Validation Panel */}
+                <div id="gaia-validation" className="w-full">
+                  <GaiaValidationPanel
+                    targetId={customStarName || selectedTargetId}
                     ra={ra}
                     dec={dec}
-                    targetDetails={activeTargetObj}
-                    manifest={manifest}
-                    framesCount={frames.length}
+                    isExpertMode={isExpertMode}
                   />
                 </div>
               </div>
@@ -599,16 +657,28 @@ export default function App() {
 
         </main>
 
-        {/* Floating Quick Action Button: Return to Celestial Map */}
-        <button
-          type="button"
-          onClick={handleScrollToTop}
-          className="fixed bottom-12 right-6 z-40 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-purple-400 hover:brightness-110 shadow-[0_0_20px_rgba(37,217,242,0.5)] transition-all active:scale-95 cursor-pointer"
-          title="Return to Celestial Map"
-        >
-          <ArrowUp className="w-4 h-4 text-slate-950" />
-          <span>Back to Sky Map</span>
-        </button>
+        {/* Floating Quick Action Button: Return to Celestial Map (Intelligently hidden at top) */}
+        {showScrollTop && (
+          <button
+            type="button"
+            onClick={handleScrollToTop}
+            className="fixed bottom-12 right-6 z-40 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-purple-400 hover:brightness-110 shadow-[0_0_20px_rgba(37,217,242,0.5)] transition-all active:scale-95 cursor-pointer animate-fadeIn"
+            title="Return to Celestial Map"
+          >
+            <ArrowUp className="w-4 h-4 text-slate-950" />
+            <span>Back to Sky Map</span>
+          </button>
+        )}
+
+        {/* IRSA Custom Ingestion Modal */}
+        <IngestModal
+          isOpen={showIngestModal}
+          onClose={() => setShowIngestModal(false)}
+          targetId={selectedTargetId}
+          ra={ra}
+          dec={dec}
+          onTriggerIngest={handleTriggerIngest}
+        />
 
         {/* Global Footer */}
         <footer className="bg-[#080D1B]/95 border-t border-white/10 py-4 px-6 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-3">
@@ -620,7 +690,7 @@ export default function App() {
             <span>Every star has a story. Discover it.</span>
           </div>
           <div className="flex items-center gap-3 text-slate-400">
-            <span>NASA Space Apps Challenge 2024</span>
+            <span>NASA Space Apps Challenge 2026</span>
             <span className="text-white/20">•</span>
             <span className="text-emerald-400 font-semibold">Engine: Nominal</span>
           </div>

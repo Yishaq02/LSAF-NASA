@@ -10,80 +10,81 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { Activity, Radio, BarChart2, Layers, Sparkles, Info } from 'lucide-react';
+import { formatTargetName } from '../utils/astroLabels';
 
 // SPHEREx Physical Detector Band Mapping (102 channels in 6 arrays of 17 channels each)
 export const SPHEREX_BANDS = [
   {
     id: '1',
-    key: 'B1',
+    key: 'B1 Near-IR',
     name: 'Band 1',
     minCh: 1,
     maxCh: 17,
     minWl: 0.75,
     maxWl: 1.11,
     color: '#25D9F2',
-    label: 'B1 (0.75-1.11 μm)',
-    description: 'Near-IR Stellar Continuum',
+    label: 'B1 Near-IR (0.75-1.11 μm)',
+    description: 'Near-IR Stellar Continuum (0.75 - 1.11 μm)',
   },
   {
     id: '2',
-    key: 'B2',
+    key: 'B2 Continuum',
     name: 'Band 2',
     minCh: 18,
     maxCh: 34,
     minWl: 1.11,
     maxWl: 1.64,
     color: '#3B82F6',
-    label: 'B2 (1.11-1.64 μm)',
-    description: 'Stellar Photosphere Continuum',
+    label: 'B2 Continuum (1.11-1.64 μm)',
+    description: 'Stellar Photosphere Continuum (1.11 - 1.64 μm)',
   },
   {
     id: '3',
-    key: 'B3',
+    key: 'B3 H₂O Ice',
     name: 'Band 3',
     minCh: 35,
     maxCh: 51,
     minWl: 1.64,
     maxWl: 2.42,
     color: '#8B5CF6',
-    label: 'B3 (1.64-2.42 μm)',
-    description: 'Interstellar Water Ice (H₂O)',
+    label: 'B3 H₂O Ice (1.64-2.42 μm)',
+    description: 'Interstellar Water Ice (1.64 - 2.42 μm)',
   },
   {
     id: '4',
-    key: 'B4',
+    key: 'B4 CH₄ / Organics',
     name: 'Band 4',
     minCh: 52,
     maxCh: 68,
     minWl: 2.42,
     maxWl: 3.82,
     color: '#E879F9',
-    label: 'B4 (2.42-3.82 μm)',
-    description: 'Organics & Methane (CH₄)',
+    label: 'B4 CH₄ / Organics (2.42-3.82 μm)',
+    description: 'Prebiotic Organics & Methane (2.42 - 3.82 μm)',
   },
   {
     id: '5',
-    key: 'B5',
+    key: 'B5 CO₂ Ice',
     name: 'Band 5',
     minCh: 69,
     maxCh: 85,
     minWl: 3.82,
     maxWl: 4.42,
     color: '#F97316',
-    label: 'B5 (3.82-4.42 μm)',
-    description: 'Solid CO & CO₂ Ice',
+    label: 'B5 CO₂ Ice (3.82-4.42 μm)',
+    description: 'Solid Carbon Dioxide Ice (3.82 - 4.42 μm)',
   },
   {
     id: '6',
-    key: 'B6',
+    key: 'B6 Thermal / Planet X',
     name: 'Band 6',
     minCh: 86,
     maxCh: 102,
     minWl: 4.42,
     maxWl: 5.00,
     color: '#FFB45E',
-    label: 'B6 (4.42-5.00 μm)',
-    description: 'Thermal IR / Cold Bodies',
+    label: 'B6 Thermal / Planet X (4.42-5.00 μm)',
+    description: 'Cold Bodies & Thermal Infrared (4.42 - 5.00 μm)',
   },
 ];
 
@@ -172,6 +173,11 @@ export default function SpectrumChart({
           <div>
             <h2 className="text-sm md:text-base font-bold text-white tracking-tight flex items-center gap-2">
               <span>Infrared Spectroscopy: Discover What Light Reveals</span>
+              {targetId && (
+                <span className="text-[10px] font-mono tracking-wider px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 font-semibold truncate max-w-[200px]" title={targetId}>
+                  Target: {formatTargetName(targetId).toUpperCase()}
+                </span>
+              )}
               <span className="text-[10px] font-mono tracking-wider px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 font-semibold">
                 102 Channels (0.75 - 5.00 μm)
               </span>
@@ -191,23 +197,19 @@ export default function SpectrumChart({
         )}
       </div>
 
-      {/* 6-Band Selector Buttons (B1 to B6 + ALL) */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
-          Bands:
-        </span>
-
+      {/* 6-Band Selector Buttons (B1 to B6 + ALL) — Pillar 2: 102-Band Chemical Fingerprinting */}
+      <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
         {/* ALL Channels Button */}
         <button
           type="button"
           onClick={() => onSelectDetector && onSelectDetector('ALL')}
-          className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`px-2.5 py-1 rounded-xl text-[10.5px] font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
             selectedDetector === 'ALL'
               ? 'bg-gradient-to-r from-cyan-400 via-purple-500 to-amber-400 text-slate-950 shadow-[0_0_15px_rgba(37,217,242,0.4)]'
               : 'bg-white/5 border border-white/10 hover:border-white/25 text-slate-300 hover:text-white'
           }`}
         >
-          ALL (102 Channels)
+          ALL (102 Ch)
         </button>
 
         {/* Individual Band Buttons */}
@@ -219,7 +221,7 @@ export default function SpectrumChart({
               key={band.id}
               type="button"
               onClick={() => onSelectDetector && onSelectDetector(band.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-xl text-[10.5px] font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                 isSelected
                   ? 'border font-bold text-white shadow-lg'
                   : 'bg-white/5 border border-white/10 hover:border-white/20 text-slate-300 hover:text-white'
@@ -232,13 +234,10 @@ export default function SpectrumChart({
               title={band.description}
             >
               <span
-                className="w-2 h-2 rounded-full"
+                className="w-1.5 h-1.5 rounded-full shrink-0"
                 style={{ backgroundColor: band.color }}
               />
               <span>{band.key}</span>
-              <span className="text-[10px] text-slate-400 hidden sm:inline">
-                {band.minWl}-{band.maxWl}μm
-              </span>
             </button>
           );
         })}

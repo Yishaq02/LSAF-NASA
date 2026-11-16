@@ -13,6 +13,7 @@ import {
   Info
 } from 'lucide-react';
 import { checkGaia } from '../services/api';
+import { formatTargetName } from '../utils/astroLabels';
 
 export default function GaiaValidationPanel({
   targetId,
@@ -111,6 +112,11 @@ export default function GaiaValidationPanel({
           <div>
             <h2 className="text-sm md:text-base font-bold text-white tracking-tight flex items-center gap-2">
               <span>Gaia DR3 Validation: Verify Your Discovery</span>
+              {targetId && (
+                <span className="text-[10px] font-mono tracking-wider px-2 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 font-semibold truncate max-w-[200px]" title={targetId}>
+                  Target: {formatTargetName(targetId).toUpperCase()}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-400">
               Cross-references target position against ESA Gaia DR3 astrometry (1.8B+ stars).
@@ -235,21 +241,33 @@ export default function GaiaValidationPanel({
               </div>
             </div>
           ) : (
-            /* STATE 4: No Optical Match Found in Gaia DR3 (Brown Dwarf / Planet X Candidate) */
-            <div className="p-4 rounded-xl bg-gradient-to-tr from-amber-950/40 via-purple-950/30 to-[#142B52]/40 border border-amber-400/60 space-y-2 shadow-[0_0_20px_rgba(255,180,94,0.15)]">
-              <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+            /* STATE 4: No Optical Match Found in Gaia DR3 (Pillar 3: Optical Dropout Verification) */
+            <div className="p-4 rounded-xl bg-gradient-to-tr from-amber-950/40 via-purple-950/30 to-[#142B52]/40 border-2 border-amber-400/80 space-y-3 shadow-[0_0_25px_rgba(255,180,94,0.25)]">
+              
+              {/* High-Impact Breakthrough Conclusion Badge */}
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-purple-500/20 border border-amber-400 text-amber-300 font-black text-xs uppercase tracking-wide shadow-[0_0_15px_rgba(245,158,11,0.3)] animate-pulse">
                 <Flame className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>No Optical Match Found in Gaia DR3 — Infrared Only Anomaly!</span>
+                <span>🔥 INFRARED-ONLY CANDIDATE (Invisible to Optical Telescopes — Sub-stellar / Planet X Profile)</span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs font-bold text-amber-300">
+                <span className="flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  No Optical Match in Gaia DR3 (Dropout Confirmed)
+                </span>
+                <span className="text-[10px] font-mono bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-500/50 text-amber-300 uppercase">
+                  Optical Dropout
+                </span>
               </div>
 
               <p className="text-xs text-slate-200 leading-relaxed">
-                No optical source exists in Gaia DR3 within the {radius}&quot; search radius. Because SPHEREx detects infrared emission here while visible telescopes see nothing, this object is a prime candidate for an <strong>ultra-cool sub-stellar body</strong>, a <strong>cold brown dwarf (Y-class)</strong>, or a <strong>distant Solar System planetoid</strong>.
+                Zero optical counterparts exist in ESA Gaia DR3 within the {radius}&quot; cone. Because SPHEREx detects infrared emission and transverse motion while optical telescopes record complete darkness, this celestial target exhibits the textbook profile of an <strong>ultra-cool sub-stellar body</strong>, a <strong>Y-class cold brown dwarf</strong>, or an <strong>outer Solar System body (Planet X / TNO)</strong>.
               </p>
 
               <div className="pt-2 border-t border-amber-500/30 flex items-center justify-between text-[11px] font-mono text-amber-300">
-                <span>Astronomical Anomaly Detected</span>
-                <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-500/50 font-bold uppercase text-[10px]">
-                  Infrared Cold Body
+                <span>Astronomical Anomaly Verified</span>
+                <span className="px-2.5 py-0.5 rounded bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-black uppercase text-[10px]">
+                  Pillar 3 Validated
                 </span>
               </div>
             </div>
