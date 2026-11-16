@@ -1,9 +1,9 @@
 <div align="center">
 
 # ⚙️ LOOKING FOR STAR — Backend Architecture & Scientific API
-### Motor de Telemetría Astrofísica, Espectroscopía de 102 Canales y Análisis Multiepocal
+### Astrophysical Telemetry Engine, 102-Channel Spectrophotometry & Time-Series Analytics
 
-> Módulo central de procesamiento de datos astronómicos y API REST de alto rendimiento para el proyecto **LOOKING FOR STAR (SPHEREx Time-Domain Explorer)** en el marco del **NASA International Space Apps Challenge**.
+> High-throughput scientific computing backend and REST API engineered for the **LOOKING FOR STAR (SPHEREx Time-Domain Explorer)** project within the **NASA International Space Apps Challenge**.
 
 ---
 
@@ -20,43 +20,43 @@
 
 ---
 
-## 🧭 Navegación entre Módulos
+## 🧭 Navigation
 
-- [⬅️ Volver a la Documentación Principal (`../README.md`)](../README.md)
-- [💻 Explorar la Documentación del Frontend (`../frontend/README.md`)](../frontend/README.md)
-
----
-
-## 📑 Tabla de Contenidos
-
-- [Visión General del Motor Backend](#-visión-general-del-motor-backend)
-- [Fundamentos de Algoritmia Astrofísica](#-fundamentos-de-algoritmia-astrofísica)
-  - [1. Lectura Eficiente de FITS (`memmap=True`)](#1-lectura-eficiente-de-fits-memmaptrue)
-  - [2. Recortes Dinámicos WCS (`Cutout2D`)](#2-recortes-dinámicos-wcs-cutout2d)
-  - [3. Detección de Movimiento Propio con NumPy (`MAD Sigma-Clipping`)](#3-detección-de-movimiento-propio-con-numpy-mad-sigma-clipping)
-  - [4. Espectrometría de Apertura en 102 Canales Infrarrojos](#4-espectrometría-de-apertura-en-102-canales-infrarrojos)
-  - [5. Síntesis y Normalización Visual (ZScale + asinh + FFmpeg)](#5-síntesis-y-normalización-visual-zscale--asinh--ffmpeg)
-  - [6. Validación Cruzada con ESA Gaia DR3](#6-validación-cruzada-con-esa-gaia-dr3)
-- [Estructura del Directorio `backend/`](#-estructura-del-directorio-backend)
-- [Contrato Completo de la API (Endpoints REST)](#-contrato-completo-de-la-api-endpoints-rest)
-- [Instalación, Entorno Virtual y Despliegue](#-instalación-entorno-virtual-y-despliegue)
-- [Créditos de Ingeniería de Datos](#-créditos-de-ingeniería-de-datos)
+- [⬅️ Back to Monorepo Root (`../README.md`)](../README.md)
+- [💻 Explore Frontend Documentation (`../frontend/README.md`)](../frontend/README.md)
 
 ---
 
-## 🚀 Visión General del Motor Backend
+## 📑 Table of Contents
 
-El backend de **LOOKING FOR STAR** ha sido diseñado bajo una arquitectura de microservicios complementarios orientados a procesar telemetría espacial real sin recurrir a simulaciones o mocks sintéticos:
-
-1. **`app.py` (Core SPHEREx Engine):** Servidor principal que expone los endpoints estándar para el frontend, administra la caché local de objetivos VIP (`barnard`, `wise0855`, `epsilon_indi_b`, `rwaur`, `rdra`, `plutino`), gestiona la descarga directa de cortes astronómicos desde NASA IRSA (`/ingest/{tid}`), extrae espectros pixelados y genera videos científicos MP4.
-2. **`api_backend_buscador_din_mico.py` (Dynamic Sky Explorer v2.0):** Servicio especializado para coordenadas arbitrarias. Cuando un usuario hace clic sobre el planetario interactivo fuera de los objetivos precargados, este módulo resuelve las coordenadas $RA/DEC$, verifica si están cubiertas por FITS locales mediante WCS (`Cutout2D`) o descarga automáticamente mosaicos reales mediante protocolos SIA de IRSA o NASA SkyView.
+- [Backend Engine Architectural Overview](#-backend-engine-architectural-overview)
+- [Astrophysical Algorithms & Pipeline Specifications](#-astrophysical-algorithms--pipeline-specifications)
+  - [1. Memory-Mapped FITS Streaming (`memmap=True`)](#1-memory-mapped-fits-streaming-memmaptrue)
+  - [2. WCS Astrometry & Dynamic `Cutout2D` Extraction](#2-wcs-astrometry--dynamic-cutout2d-extraction)
+  - [3. NumPy Epoch Subtraction & MAD Sigma-Clipping](#3-numpy-epoch-subtraction--mad-sigma-clipping)
+  - [4. 102-Channel Spectrophotometry ($3 \times 3$ Aperture Integration)](#4-102-channel-spectrophotometry-3-times-3-aperture-integration)
+  - [5. Visual Synthesis (ZScale + asinh + FFmpeg H.264)](#5-visual-synthesis-zscale--asinh--ffmpeg-h264)
+  - [6. Live Astrometric Cross-Matching with ESA Gaia DR3](#6-live-astrometric-cross-matching-with-esa-gaia-dr3)
+- [Directory Hierarchy (`backend/`)](#-directory-hierarchy-backend)
+- [Complete REST API Contract & Endpoint Reference](#-complete-rest-api-contract--endpoint-reference)
+- [Installation, Virtual Environment & Deployment](#-installation-virtual-environment--deployment)
+- [Data Engineering Credits](#-data-engineering-credits)
 
 ---
 
-## 🔬 Fundamentos de Algoritmia Astrofísica
+## 🚀 Backend Engine Architectural Overview
 
-### 1. Lectura Eficiente de FITS (`memmap=True`)
-En astrofísica moderna, manipular archivos `.FITS` (*Flexible Image Transport System*) de cientos de megabytes puede saturar la memoria RAM. En `fits_engine.py`, la lectura se realiza implementando proyección de memoria directa:
+The backend for **LOOKING FOR STAR** is built on a modular, high-performance architecture operating with 100% genuine astronomical telemetry (zero mocks or synthetic arrays):
+
+1. **`app.py` (Core SPHEREx Telemetry Service):** Primary REST API handling client sessions, serving pre-cached VIP benchmark targets (`barnard`, `wise0855`, `epsilon_indi_b`, `rwaur`, `rdra`, `plutino`), managing direct IRSA cutout downloads (`/ingest/{tid}`), executing on-the-fly spectral synthesis, and generating scientific MP4 video files.
+2. **`api_backend_buscador_din_mico.py` (Dynamic Sky Explorer v2.0):** Microservice specialized in arbitrary celestial coordinate lookups. When an observer clicks on an uncataloged sector in the Aladin Lite planetarium, this engine converts screen coordinates to $RA/DEC$, checks local FITS footprints using Astropy WCS, or queries NASA IRSA / SkyView SIA endpoints in real time to ingest and process raw FITS data on-the-fly.
+
+---
+
+## 🔬 Astrophysical Algorithms & Pipeline Specifications
+
+### 1. Memory-Mapped FITS Streaming (`memmap=True`)
+Handling astronomical `.FITS` files containing millions of pixels requires efficient I/O. In `fits_engine.py`, the ingestion layer utilizes direct OS memory mapping:
 ```python
 with fits.open(path, memmap=True) as hdul:
     ext = "IMAGE" if "IMAGE" in hdul else next(
@@ -65,111 +65,115 @@ with fits.open(path, memmap=True) as hdul:
     hdr = hdul[ext].header.copy()
     datos = np.array(hdul[ext].data, dtype=np.float32)
 ```
-Esto permite acceder instantáneamente a matrices de píxeles y cabeceras astronómicas sin decodificar el archivo completo en memoria.
+This enables instantaneous pixel slice access and header parsing without saturating RAM.
 
-### 2. Recortes Dinámicos WCS (`Cutout2D`)
-Para trasladar clics de pantalla a coordenadas astronómicas celestes ($RA, DEC$), el motor implementa el estándar WCS (*World Coordinate System*) de `astropy.wcs.WCS` y extrae submatrices exactas centradas en el objeto:
+### 2. WCS Astrometry & Dynamic `Cutout2D` Extraction
+To map screen interactions directly to celestial coordinates ($RA, DEC$), the engine implements the World Coordinate System (WCS) standard and extracts sub-arrays centered exactly on target sources:
 ```python
 coord = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
 cutout = Cutout2D(imagen, position=coord, size=(size_px, size_px), wcs=wcs)
 ```
-Garantizando que las transformaciones de píxel a coordenadas ecuatoriales $ICRSd$ mantengan precisión submilisegundo de arco.
+This preserves sub-milliarcsecond astrometric fidelity across epoch reprojections.
 
-### 3. Detección de Movimiento Propio con NumPy (`MAD Sigma-Clipping`)
-Para aislar candidatos a **Planeta X**, asteroides transneptunianos o estrellas de alto movimiento propio transversal, `diff.py` ejecuta una sustracción de épocas temporales:
+### 3. NumPy Epoch Subtraction & MAD Sigma-Clipping
+To isolate transiting Solar System objects, extreme high proper motion stars, or candidate Planet X bodies, `diff.py` computes the temporal difference matrix between observation epochs:
 
-$$\Delta I = I_{\text{nueva}} - I_{\text{vieja}}$$
+$$\Delta I = I_{\text{new}} - I_{\text{old}}$$
 
-Para aniquilar estrellas fijas de fondo y ruido instrumental sin eliminar la señal de movimiento, se calcula la Mediana de Desviaciones Absolutas (**MAD**):
+To eliminate stationary background stars and instrumental noise while preserving real motion, the engine calculates the Median Absolute Deviation (**MAD**):
 
 $$\text{MAD} = \text{median}(|\Delta I - \text{median}(\Delta I)|) \times 1.4826$$
-$$\text{Umbral} = \sigma \times \text{MAD}$$
+$$\text{Threshold} = \sigma \times \text{MAD}$$
 
-Todos los píxeles con $|\Delta I| < \text{Umbral}$ se fuerzan a $0.0$, produciendo una imagen diferencial donde solo resaltan dipolos característicos de movimiento o variabilidad lumínica.
+All pixels satisfying $|\Delta I| < \text{Threshold}$ are clamped to $0.0$, generating a pristine difference map revealing the characteristic motion dipole:
 
-### 4. Espectrometría de Apertura en 102 Canales Infrarrojos
-El telescopio espacial SPHEREx no utiliza una rendija espectral clásica, sino filtros lineales variables (**LVF**) distribuidos en 6 detectores ópticos (`B1` a `B6`). Cada detector muestrea 17 canales continuos:
-- **Detector 1 (`B1`):** $0.75 - 1.11\,\mu\text{m}$ (Continuo estelar cercano al infrarrojo).
-- **Detector 2 (`B2`):** $1.11 - 1.64\,\mu\text{m}$ (Fotosferas estelares).
-- **Detector 3 (`B3`):** $1.64 - 2.42\,\mu\text{m}$ (Hielos de agua interestelar $H_2O$).
-- **Detector 4 (`B4`):** $2.42 - 3.82\,\mu\text{m}$ (Compuestos orgánicos, hidrocarburos y metano $CH_4$).
-- **Detector 5 (`B5`):** $3.82 - 4.42\,\mu\text{m}$ (Hielo de monóxido y dióxido de carbono $CO / CO_2$).
-- **Detector 6 (`B6`):** $4.42 - 5.00\,\mu\text{m}$ (Infrarrojo térmico y cuerpos ultrafríos).
+```
+[Negative Hole (Epoch A)] <---- Motion Vector ----> [Positive Peak (Epoch B)]
+```
 
-En `spectra.py`, el flujo de cada canal se obtiene mediante integración fotométrica en una apertura de $3 \times 3$ píxeles alrededor de la coordenada objetivo, interpolando sobre la rejilla física nominal de SPHEREx.
+### 4. 102-Channel Spectrophotometry ($3 \times 3$ Aperture Integration)
+The SPHEREx observatory utilizes Linear Variable Filters (**LVF**) mounted across 6 distinct focal plane detectors (`B1` to `B6`), each delivering 17 continuous spectral bands:
+- **Detector 1 (`B1`):** $0.75 - 1.11\,\mu\text{m}$ (Near-IR stellar continuum).
+- **Detector 2 (`B2`):** $1.11 - 1.64\,\mu\text{m}$ (Stellar photospheres and continuum).
+- **Detector 3 (`B3`):** $1.64 - 2.42\,\mu\text{m}$ (Interstellar water ice absorption $H_2O$).
+- **Detector 4 (`B4`):** $2.42 - 3.82\,\mu\text{m}$ (Hydrocarbons, organics, and gaseous methane $CH_4$).
+- **Detector 5 (`B5`):** $3.82 - 4.42\,\mu\text{m}$ (Solid carbon monoxide and dioxide $CO / CO_2$).
+- **Detector 6 (`B6`):** $4.42 - 5.00\,\mu\text{m}$ (Thermal infrared and ultra-cool brown dwarfs).
 
-### 5. Síntesis y Normalización Visual (ZScale + asinh + FFmpeg)
-Para convertir matrices de flujo en coma flotante con amplio rango dinámico a imágenes visibles de 8 bits sin quemar los núcleos estelares:
-1. Se aplica estiramiento **ZScale** para determinar los cortes inferior y superior basados en la dispersión $\sigma$.
-2. Se aplica compresión no lineal con seno hiperbólico inverso ($\text{asinh}$):
-   $$I_{\text{disp}} = \frac{\text{asinh}(x / 0.1)}{\text{asinh}(1.0 / 0.1)} \times 255$$
-3. En `video.py`, las secuencias de épocas se envían a través de un pipe a **FFmpeg** codificando en H.264 (`yuv420p`) a tasas de $1, 2, 5, 10, 15, 20, 24$ o $30\,\text{fps}$.
+In `spectra.py`, the flux for each channel is integrated within a calibrated $3 \times 3$ pixel aperture surrounding the coordinate centroid, followed by interpolation onto SPHEREx's physical wavelength grid.
 
-### 6. Validación Cruzada con ESA Gaia DR3
-En `gaia_check.py`, cada objetivo es contrastado en tiempo real contra el catálogo astrométrico óptico de **Gaia DR3** mediante consultas TAP / VizieR (`I/355/gaiadr3`). Si se halla una contraparte en un radio de $5''$, se devuelven su $G_{\text{mag}}$, paralaje y movimiento propio ($\mu_{\alpha}, \mu_{\delta}$). Si no existe contraparte óptica en Gaia pero la fuente emite vigorosamente en las bandas infrarrojas de SPHEREx, el sistema marca el objetivo con la bandera:
-`anomaly: true` $\rightarrow$ **Candidato a Planeta X / Enana Marrón Ultrafría**.
+### 5. Visual Synthesis (ZScale + asinh + FFmpeg H.264)
+To map scientific floating-point data with dynamic ranges spanning multiple orders of magnitude into clear 8-bit displays without saturating stellar cores:
+1. An astronomical **ZScale** algorithm computes optimal lower and upper cutoffs based on pixel variance $\sigma$.
+2. An inverse hyperbolic sine ($\text{asinh}$) non-linear compression is applied:
+   $$I_{\text{display}} = \frac{\text{asinh}(x / 0.1)}{\text{asinh}(1.0 / 0.1)} \times 255$$
+3. In `video.py`, normalized epoch sequences are streamed via standard pipes to **FFmpeg**, rendering H.264 MP4 videos (`yuv420p`) at user-selected frame rates ($1, 2, 5, 10, 15, 20, 24, 30\,\text{fps}$).
+
+### 6. Live Astrometric Cross-Matching with ESA Gaia DR3
+In `gaia_check.py`, observed coordinates are cross-matched in real time against the **Gaia DR3** optical catalog (`I/355/gaiadr3`) via VizieR TAP and ESA Cone Search. When an optical counterpart exists within $5''$, its $G_{\text{mag}}$, parallax, and proper motion ($\mu_{\alpha}, \mu_{\delta}$) are extracted. If strong infrared emission is detected in SPHEREx but no optical source exists in Gaia DR3, the system triggers:
+`anomaly: true` $\rightarrow$ **Candidate Planet X / Ultra-Cool Sub-Stellar Object**.
 
 ---
 
-## 📂 Estructura del Directorio `backend/`
+## 📂 Directory Hierarchy (`backend/`)
 
 ```bash
 backend/
-├── api_backend_buscador_din_mico.py  # Servidor Dynamic Sky Explorer (FastAPI v2.0)
-├── app.py                   # API REST Principal y despachador de objetivos VIP
-├── config.py                # Rutas del sistema, mapeo de bandas y constantes
-├── diff.py                  # Algoritmo NumPy de diferencia de épocas y umbral MAD
-├── explorer_engine.py       # Motor dinámico de búsqueda en FITS locales y descargas IRSA
-├── fetchers.py              # Funciones auxiliares de consulta a IRSA, Gaia y SkyView
-├── fits_engine.py           # Abstracción de bajo nivel sobre astropy.io.fits y WCS
-├── gaia_check.py            # Validador astrométrico contra el catálogo ESA Gaia DR3
-├── requirements.txt         # Especificación de dependencias del entorno Python
-├── spectra.py               # Algoritmo de extracción de espectro en 102 canales
-├── spherex_real_loader.py   # Ingestor HTTP Range de FITS oficiales SPHEREx
-├── start.sh                 # Script bash para levantar Uvicorn en el puerto 8000
-├── targets.json             # Catálogo JSON de estrellas VIP con coordenadas RA/DEC
-├── video.py                 # Generador de videos científicos MP4 mediante FFmpeg
-├── README.md                # Este documento técnico de referencia
-└── data/                    # Almacén estructurado de matrices FITS
-    ├── barnard/             # 20+ épocas multitemporales de la Estrella de Barnard
-    ├── wise0855/            # FITS de la sub-enana marrón WISE 0855-0714
-    ├── epsilon_indi_b/      # FITS de la enana marrón binaria Epsilon Indi B
-    ├── rwaur/               # FITS de la variable joven RW Aurigae
-    ├── rdra/                # FITS de la gigante pulsante R Draconis
-    ├── plutino/             # FITS de objeto transneptuniano
-    ├── click_*/             # Recortes generados dinámicamente tras clics de usuario
-    └── custom_*/            # Descargas automáticas de mosaicos IRSA
+├── api_backend_buscador_din_mico.py  # Dynamic Sky Explorer service (FastAPI v2.0)
+├── app.py                   # Core REST API & VIP target service
+├── config.py                # System paths, detector mapping, and constants
+├── diff.py                  # NumPy matrix difference & MAD thresholding algorithms
+├── explorer_engine.py       # Dynamic Cutout2D extractor & on-the-fly IRSA fetcher
+├── fetchers.py              # Astroquery wrappers for IRSA, Gaia, and SkyView
+├── fits_engine.py           # Low-level memory-mapped FITS parser & WCS resolver
+├── gaia_check.py            # Live astrometric cross-validator against ESA Gaia DR3
+├── requirements.txt         # Production Python dependencies specification
+├── spectra.py               # 102-channel spectral extraction & interpolation engine
+├── spherex_real_loader.py   # HTTP Range / SIA client for official SPHEREx FITS
+├── start.sh                 # Shell launcher for Uvicorn server on port 8000
+├── targets.json             # Curated catalog of VIP astronomical targets
+├── video.py                 # Scientific H.264 MP4 animator powered by FFmpeg
+├── README.md                # This technical reference manual
+└── data/                    # Astronomical FITS repository
+    ├── barnard/             # Multi-epoch FITS series for Barnard's Star
+    ├── wise0855/            # FITS cutouts for the Y-dwarf WISE 0855-0714
+    ├── epsilon_indi_b/      # FITS cutouts for brown dwarf binary Epsilon Indi B
+    ├── rwaur/               # FITS cutouts for T Tauri variable RW Aurigae
+    ├── rdra/                # FITS cutouts for Mira-type pulsating variable R Draconis
+    ├── plutino/             # FITS cutouts for Trans-Neptunian Object (TNO)
+    ├── click_*/             # Dynamic cutouts generated from interactive user clicks
+    └── custom_*/            # Automated on-the-fly IRSA SIA downloads
 ```
 
 ---
 
-## 📡 Contrato Completo de la API (Endpoints REST)
+## 📡 Complete REST API Contract & Endpoint Reference
 
-Todos los endpoints responden con cabeceras CORS permisivas (`*`) y devuelven tipos de contenido MIME estándar (`application/json`, `image/png`, `video/mp4`, `image/fits`).
+All endpoints include permissive Cross-Origin Resource Sharing (`CORS: *`) headers and return standardized MIME formats (`application/json`, `image/png`, `video/mp4`, `image/fits`).
 
-| Método | Ruta | Parámetros (Query / Body) | Formato Retorno | Descripción Técnica |
+| Method | Endpoint | Query / Body Parameters | Response MIME | Technical Description |
 |---|---|---|---|---|
-| `GET` | `/health` | Ninguno | `JSON` | Comprobación de salud (*health check*) para el Frontend Connection Boundary. |
-| `GET` | `/targets` | Ninguno | `JSON` | Lista cruda de objetivos VIP definidos en `targets.json`. |
-| `GET` | `/api/targets` | Ninguno | `JSON` | Catálogo VIP enriquecido con descripciones, tipos espectrales y distancias en años luz. |
-| `GET` | `/fits/{tid}` | `tid` (path: ID del objetivo) | `JSON` | Manifiesto de épocas disponibles con MJD, detector, wavelength y URLs de descarga. |
-| `GET` | `/fits/{tid}/{index}` | `tid`, `index` (int), `format` (`fits` \| `png`) | `image/fits` o `image/png` | Descarga el archivo FITS original o el frame renderizado en PNG con estiramiento ZScale. |
-| `POST` | `/ingest/{tid}` | `tid` (path), `max_epocas` (int, default 20), `detector` (int), `ra` (float), `dec` (float) | `JSON` | Ingesta en vivo de cutouts oficiales SPHEREx desde NASA IRSA a disco local. |
-| `GET` | `/spectrum/{tid}` | `tid`, `x` (int), `y` (int), `index` (int), `ra` (float), `dec` (float) | `JSON` | Espectro completo de 102 canales con longitud de onda ($\mu\text{m}$) y flujo calibrado. |
-| `GET` | `/diff/{tid}` | `tid`, `a` (int), `b` (int), `detector` (int), `sigma` (float, default 3.0), `ra`, `dec` | `JSON` | Sustracción matricial NumPy ($\text{Época } A - \text{Época } B$) en Base64 con umbral MAD. |
-| `POST` | `/api/explorar` | Body JSON: `{"ra": float, "dec": float, "mode": "normal"|"diff", "max_epocas": int}` | `JSON` | Búsqueda dinámica con Cutout2D WCS y descarga on-the-fly de cualquier coordenada. |
-| `GET` | `/gaia-check` | `ra` (float), `dec` (float), `radius` (float, default 5.0), `target` (str) | `JSON` | Validación astrométrica en vivo contra ESA Gaia DR3 (detecta anomalías / Planeta X). |
-| `GET` | `/export-mp4` | `target` (str), `mode` (`normal` \| `diff`), `fps` (int: 1-30), `ra`, `dec` | `video/mp4` | Genera y descarga un video MP4 codificado en H.264 de la serie temporal. |
+| `GET` | `/health` | None | `application/json` | System health check used by the Frontend Connection Boundary. |
+| `GET` | `/targets` | None | `application/json` | Raw array of VIP targets from `targets.json`. |
+| `GET` | `/api/targets` | None | `application/json` | Enriched VIP target catalog with descriptions, spectral types, and distances. |
+| `GET` | `/fits/{tid}` | `tid` (path: Target identifier) | `application/json` | Manifest of available epochs including MJD, detector ID, wavelength, and image URLs. |
+| `GET` | `/fits/{tid}/{index}` | `tid`, `index` (int), `format` (`fits` \| `png`) | `image/fits` or `image/png` | Downloads raw original FITS file or a ZScale-stretched 8-bit PNG frame. |
+| `POST` | `/ingest/{tid}` | `tid`, `max_epocas` (int, default 20), `detector` (int), `ra` (float), `dec` (float) | `application/json` | Ingests live SPHEREx cutouts from NASA IRSA directly to local disk. |
+| `GET` | `/spectrum/{tid}` | `tid`, `x` (int), `y` (int), `index` (int), `ra` (float), `dec` (float) | `application/json` | Extracts calibrated 102-channel infrared spectrum with wavelengths ($\mu\text{m}$) and flux. |
+| `GET` | `/diff/{tid}` | `tid`, `a` (int), `b` (int), `detector` (int), `sigma` (float, default 3.0), `ra`, `dec` | `application/json` | Computes NumPy matrix subtraction ($\text{Epoch } A - \text{Epoch } B$) with MAD thresholding. |
+| `POST` | `/api/explorar` | Body: `{"ra": float, "dec": float, "mode": "normal"|"diff", "max_epocas": int}` | `application/json` | Dynamic Cutout2D WCS search with automated fallback to live NASA IRSA downloads. |
+| `GET` | `/gaia-check` | `ra` (float), `dec` (float), `radius` (float, default 5.0), `target` (str) | `application/json` | Live astrometric cross-match with ESA Gaia DR3 (detects Planet X anomalies). |
+| `GET` | `/export-mp4` | `target` (str), `mode` (`normal` \| `diff`), `fps` (int: 1-30), `ra`, `dec` | `video/mp4` | Compiles and streams a scientific H.264 MP4 video of the multi-epoch sequence. |
 
 ---
 
-### Ejemplos de Peticiones y Respuestas
+### Request & Response Examples
 
-#### 1. Ingesta y Consulta de Espectro (`GET /spectrum/barnard`)
+#### 1. Ingest and Fetch 102-Channel Spectrum (`GET /spectrum/barnard`)
 ```bash
 curl -X GET "http://localhost:8000/spectrum/barnard" -H "Accept: application/json"
 ```
-**Respuesta:**
+**Response JSON:**
 ```json
 {
   "target": "barnard",
@@ -184,11 +188,11 @@ curl -X GET "http://localhost:8000/spectrum/barnard" -H "Accept: application/jso
 }
 ```
 
-#### 2. Sustracción Diferencial NumPy (`GET /diff/barnard?a=-1&b=-2&sigma=3.0`)
+#### 2. NumPy Matrix Subtraction (`GET /diff/barnard?a=-1&b=-2&sigma=3.0`)
 ```bash
 curl -X GET "http://localhost:8000/diff/barnard?a=-1&b=-2&detector=1&sigma=3.0"
 ```
-**Respuesta:**
+**Response JSON:**
 ```json
 {
   "shape": [64, 64],
@@ -200,11 +204,11 @@ curl -X GET "http://localhost:8000/diff/barnard?a=-1&b=-2&detector=1&sigma=3.0"
 }
 ```
 
-#### 3. Validación Astrométrica Gaia DR3 (`GET /gaia-check?ra=269.4521&dec=4.6933`)
+#### 3. Gaia DR3 Astrometric Cross-Matching (`GET /gaia-check?ra=269.4521&dec=4.6933`)
 ```bash
 curl -X GET "http://localhost:8000/gaia-check?ra=269.4521&dec=4.6933&radius=5.0"
 ```
-**Respuesta:**
+**Response JSON:**
 ```json
 {
   "known_star": true,
@@ -214,7 +218,7 @@ curl -X GET "http://localhost:8000/gaia-check?ra=269.4521&dec=4.6933&radius=5.0"
   "proper_motion_mas_yr": 10393.385,
   "parallax": 546.9759,
   "g_mag": 8.694,
-  "message": "Fuente estelar confirmada en Gaia DR3 a 0.21\"",
+  "message": "Confirmed stellar source in Gaia DR3 at 0.21\"",
   "anomaly": false,
   "nearest_arcsec": 0.21
 }
@@ -222,42 +226,42 @@ curl -X GET "http://localhost:8000/gaia-check?ra=269.4521&dec=4.6933&radius=5.0"
 
 ---
 
-## 🛠️ Instalación, Entorno Virtual y Despliegue
+## 🛠️ Installation, Virtual Environment & Deployment
 
-### Prerrequisitos del Sistema
-- **Python**: Versión `3.10` o superior instalada.
-- **FFmpeg**: Necesario para el endpoint de exportación de video `/export-mp4`.
-  - En Ubuntu / Debian: `sudo apt-get install -y ffmpeg`
-  - En macOS (Homebrew): `brew install ffmpeg`
-  - En Windows: `winget install Gyan.FFmpeg` o descargar binario oficial.
+### System Prerequisites
+- **Python**: Version `3.10` or higher.
+- **FFmpeg**: Required for the `/export-mp4` video generation endpoint.
+  - Ubuntu / Debian: `sudo apt-get install -y ffmpeg`
+  - macOS (Homebrew): `brew install ffmpeg`
+  - Windows: `winget install Gyan.FFmpeg` or download official static build.
 
-### Paso a Paso para Despliegue Local
+### Step-by-Step Setup
 
 ```bash
-# 1. Ingresar al directorio del backend
+# 1. Enter the backend directory
 cd LSAF-NASA/backend
 
-# 2. Crear entorno virtual aislado
+# 2. Create an isolated virtual environment
 python3 -m venv venv
 
-# 3. Activar el entorno virtual
-# En Linux / macOS:
+# 3. Activate the virtual environment
+# On Linux / macOS:
 source venv/bin/activate
-# En Windows (PowerShell):
+# On Windows (PowerShell):
 # .\venv\Scripts\Activate.ps1
 
-# 4. Actualizar gestor de paquetes e instalar dependencias
+# 4. Upgrade pip and install scientific requirements
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 5. Ejecutar el servidor con recarga en caliente
+# 5. Start the API service with hot-reloading
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ---
 
-## 👥 Créditos de Ingeniería de Datos
+## 👥 Data Engineering Credits
 
-- **Diosdado**: Arquitectura de canalización de datos astrofísicos y lectura de telemetría FITS.
-- **Rafa**: Integración de contratos REST, routing FastAPI y serialización NumPy.
-- **Isaac Atilano Tobón ([@Yishaq02](https://github.com/Yishaq02))**: Supervisión arquitectónica y enlace con cliente Frontend.
+- **Diosdado**: Astrophysical data pipelines, FITS telemetry ingestion, and aperture photometry.
+- **Rafa**: REST API routing, FastAPI contract integration, and NumPy serialization.
+- **Isaac Atilano Tobón ([@Yishaq02](https://github.com/Yishaq02))**: Software architecture oversight and frontend contract coordination.

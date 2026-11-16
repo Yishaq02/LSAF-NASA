@@ -1,9 +1,9 @@
 <div align="center">
 
 # 💻 LOOKING FOR STAR — Frontend Architecture & Scientific Visualization
-### Visualizador Web de Misión Espacial: React 18, WebGL, Aladin Lite v3 & Recharts
+### Space Mission Web Dashboard: React 18, WebGL, Aladin Lite v3 & Recharts
 
-> Interfaz de usuario interactiva y de alto impacto visual para el proyecto **LOOKING FOR STAR (SPHEREx Time-Domain Explorer)**, diseñada para el **NASA International Space Apps Challenge** bajo la especificación **Cosmic Scientific Design System (CSDS Spec v3.0)**.
+> High-fidelity astronomical user interface for the **LOOKING FOR STAR (SPHEREx Time-Domain Explorer)** project, engineered for the **NASA International Space Apps Challenge** under the **Cosmic Scientific Design System (CSDS Spec v3.0)**.
 
 ---
 
@@ -19,74 +19,78 @@
 
 ---
 
-## 🧭 Navegación entre Módulos
+## 🧭 Navigation
 
-- [⬅️ Volver a la Documentación Principal (`../README.md`)](../README.md)
-- [⚙️ Explorar la Documentación del Backend (`../backend/README.md`)](../backend/README.md)
+- [⬅️ Back to Monorepo Root (`../README.md`)](../README.md)
+- [⚙️ Explore Backend Documentation (`../backend/README.md`)](../backend/README.md)
 
 ---
 
-## 📑 Tabla de Contenidos
+## 📑 Table of Contents
 
-- [Filosofía UX/UI y Sistema de Diseño Cósmico (CSDS)](#-filosofía-uxui-y-sistema-de-diseño-cósmico-csds)
-  - [Dualidad de Experiencia: Beginner vs Expert Mode](#dualidad-de-experiencia-beginner-vs-expert-mode)
-  - [Tokens Cromáticos y Glassmorphism Espacial](#tokens-cromáticos-y-glassmorphism-espacial)
-- [Arquitectura de Componentes Científicos](#-arquitectura-de-componentes-científicos)
+- [UI/UX Philosophy & Cosmic Scientific Design System (CSDS)](#-uiux-philosophy--cosmic-scientific-design-system-csds)
+  - [Dual Experience Paradigm: Beginner vs Expert Mode](#dual-experience-paradigm-beginner-vs-expert-mode)
+  - [Chromatic Tokens & Deep Space Glassmorphism](#chromatic-tokens--deep-space-glassmorphism)
+  - [SPHEREx 6-Band LVF Spectral Mapping](#spherex-6-band-lvf-spectral-mapping)
+- [Scientific Component Architecture & Visual Modules](#-scientific-component-architecture--visual-modules)
   - [1. Sky Survey Navigator (`AladinLiteMap.jsx`)](#1-sky-survey-navigator-aladinlitemapjsx)
   - [2. Time Travel Flipbook & WiseView Controls (`FlipbookViewer.jsx`)](#2-time-travel-flipbook--wiseview-controls-flipbookviewerjsx)
-  - [3. Espectrofotómetro Infrarrojo de 102 Canales (`SpectrumChart.jsx`)](#3-espectrofotómetro-infrarrojo-de-102-canales-spectrumchartjsx)
-  - [4. Validador Astrométrico ESA Gaia DR3 (`GaiaValidationPanel.jsx`)](#4-validador-astrométrico-esa-gaia-dr3-gaiavalidationpaneljsx)
-  - [5. Sincronización Bidireccional de Estado en URL (`App.jsx`)](#5-sincronización-bidireccional-de-estado-en-url-appjsx)
-  - [6. Verificación de Integridad de Telemetría (`BackendConnectionBoundary.jsx`)](#6-verificación-de-integridad-de-telemetría-backendconnectionboundaryjsx)
-- [Estructura del Directorio `frontend/`](#-estructura-del-directorio-frontend)
-- [Consumo de API REST y Contratos de Servicio (`api.js`)](#-consumo-de-api-rest-y-contratos-de-servicio-apijs)
-- [Instalación, Ejecución y Scripts de Construcción](#-instalación-ejecución-y-scripts-de-construcción)
-- [Créditos de Diseño y Frontend](#-créditos-de-diseño-y-frontend)
+  - [3. 102-Channel Infrared Spectrophotometer (`SpectrumChart.jsx`)](#3-102-channel-infrared-spectrophotometer-spectrumchartjsx)
+  - [4. ESA Gaia DR3 Astrometric Validator (`GaiaValidationPanel.jsx`)](#4-esa-gaia-dr3-astrometric-validator-gaiavalidationpaneljsx)
+  - [5. Bidirectional URL State Synchronization (`App.jsx`)](#5-bidirectional-url-state-synchronization-appjsx)
+  - [6. Telemetry Health Boundary (`BackendConnectionBoundary.jsx`)](#6-telemetry-health-boundary-backendconnectionboundaryjsx)
+- [Directory Hierarchy (`frontend/`)](#-directory-hierarchy-frontend)
+- [REST API Client & Service Contracts (`api.js`)](#-rest-api-client--service-contracts-apijs)
+- [Installation, Development & Build Scripts](#-installation-development--build-scripts)
+- [UI/UX & Frontend Engineering Credits](#-uiux--frontend-engineering-credits)
 
 ---
 
-## 🎨 Filosofía UX/UI y Sistema de Diseño Cósmico (CSDS)
+## 🎨 UI/UX Philosophy & Cosmic Scientific Design System (CSDS)
 
-La interfaz de **LOOKING FOR STAR** implementa la especificación formal documentada en [`DESIGN.md`](./DESIGN.md). Su premisa fundacional es erradicar la aridez de las herramientas astronómicas tradicionales sin sacrificar ni un solo ápice de rigor científico:
+The interface of **LOOKING FOR STAR** translates the formal design specification established in [`DESIGN.md`](./DESIGN.md) into code. It reconciles professional astrophysics data visualization with accessible, publication-grade aesthetics:
 
-### Dualidad de Experiencia: Beginner vs Expert Mode
-El usuario puede alternar dinámicamente entre dos perfiles de exploración mediante el conmutador superior:
+### Dual Experience Paradigm: Beginner vs Expert Mode
+Users can dynamically switch between two exploration interfaces using the top header toggle:
 
-| Característica | 🌟 Beginner Mode (Por Defecto) | 🔬 Expert Mode (Astrofísico / PI) |
+| Dimension | 🌟 Beginner Mode (Default) | 🔬 Expert Mode (Astronomer / PI) |
 |---|---|---|
-| **Público Objetivo** | Estudiantes, divulgadores, entusiastas espaciales y jueces. | Astrónomos observacionales, investigadores y desarrolladores. |
-| **Complejidad Visual** | Enfoque visual guiado con tarjetas explicativas y contexto histórico. | HUD de telemetría completa con instrumental astrométrico exhaustivo. |
-| **Coordenadas Celestes** | Nombres estelares familiares y constelaciones de referencia. | Coordenadas de alta precisión en Decimales ($RA/DEC$) y Sexagesimales ($HMS/DMS$). |
-| **Controles de Instrumento** | Animación predeterminada a $5\,\text{fps}$ y visor intuitivo. | Selección manual de épocas ($A$ y $B$), filtros de brillo, contraste e inversión, selector de bandas LVF ($B1-B6$) y umbral $\sigma$ MAD. |
-| **Inspección Espectral** | Visualización macro con identificación de agua y metano. | Lectura de flujo fotométrico por píxel específico ($x, y$) con longitud de onda nanométrica. |
+| **Target Audience** | Students, educators, science communicators, and judges. | Observational astronomers, astrophysics researchers, and engineers. |
+| **Interface Complexity** | Guided visual exploration with narrative stellar profiles. | Full astrophysical instrumentation HUD and telemetry readouts. |
+| **Coordinate System** | Familiar star names and benchmark constellation contexts. | Decimal ($RA/DEC$) and sexagesimal ($HMS/DMS$) coordinates with copy actions. |
+| **Instrument Controls** | Clean $5\,\text{fps}$ loop playback and intuitive flipbook controls. | Manual epoch pairing ($A$ and $B$), brightness/contrast/invert sliders, LVF detector selectors ($B1-B6$), and MAD $\sigma$ sensitivity tuning. |
+| **Spectral Inspection** | Integrated curve with key water and methane tags. | Single-pixel aperture inspection ($3 \times 3$) with nanometer-precise flux data. |
 
-### Tokens Cromáticos y Glassmorphism Espacial
-La plataforma utiliza un lienzo de espacio profundo con tarjetas de vidrio galáctico flotantes:
-- **Deep Space Blue (`#080D1B`):** Fondo abisal con gradientes radiales atmosféricos.
-- **Galactic Glass (`bg-[#142B52]/40 backdrop-blur-xl border border-white/10`):** Superficies translúcidas que otorgan jerarquía tridimensional y máxima legibilidad.
-- **SPHEREx 6-Band Spectrum:** Cada detector físico cuenta con su propio trazador cromático estandarizado:
-  - `B1` ($0.75 - 1.11\,\mu\text{m}$): **Bright Cyan** (`#25D9F2`) — Continuo estelar cercano.
-  - `B2` ($1.11 - 1.64\,\mu\text{m}$): **Stellar Blue** (`#3B82F6`) — Fotosferas estelares.
-  - `B3` ($1.64 - 2.42\,\mu\text{m}$): **Cosmic Violet** (`#8B5CF6`) — Hielo de agua interestelar ($H_2O$).
-  - `B4` ($2.42 - 3.82\,\mu\text{m}$): **Stellar Magenta** (`#E879F9`) — Compuestos orgánicos y metano ($CH_4$).
-  - `B5` ($3.82 - 4.42\,\mu\text{m}$): **Carbon Amber** (`#F97316`) — Dióxido de carbono ($CO/CO_2$).
-  - `B6` ($4.42 - 5.00\,\mu\text{m}$): **Solar Orange** (`#FFB45E`) — Infrarrojo térmico y enanas ultrafrías.
+### Chromatic Tokens & Deep Space Glassmorphism
+The user experience is anchored on a deep cosmic palette:
+- **Deep Space Blue (`#080D1B`):** Canvas background illuminated by atmospheric volumetric radial glows.
+- **Galactic Glass (`bg-[#142B52]/40 backdrop-blur-xl border border-white/10`):** Translucent cards that maximize contrast for infrared imagery and spectral graphs.
+- **Subtle Surface Definition (`rgba(255,255,255,0.1)`):** Ultra-crisp vector boundaries eliminating visual clutter.
+
+### SPHEREx 6-Band LVF Spectral Mapping
+Each Linear Variable Filter (LVF) detector array is assigned a dedicated astrophysical color token:
+- `B1` ($0.75 - 1.11\,\mu\text{m}$): **Bright Cyan** (`#25D9F2`) — Near-IR stellar continuum.
+- `B2` ($1.11 - 1.64\,\mu\text{m}$): **Stellar Blue** (`#3B82F6`) — Stellar photospheres.
+- `B3` ($1.64 - 2.42\,\mu\text{m}$): **Cosmic Violet** (`#8B5CF6`) — Interstellar water ice ($H_2O$).
+- `B4` ($2.42 - 3.82\,\mu\text{m}$): **Stellar Magenta** (`#E879F9`) — Organics, hydrocarbons, and methane ($CH_4$).
+- `B5` ($3.82 - 4.42\,\mu\text{m}$): **Carbon Amber** (`#F97316`) — Solid carbon monoxide and dioxide ($CO/CO_2$).
+- `B6` ($4.42 - 5.00\,\mu\text{m}$): **Solar Orange** (`#FFB45E`) — Thermal infrared and sub-stellar brown dwarfs.
 
 ---
 
-## 🏛️ Arquitectura de Componentes Científicos
+## 🏛️ Scientific Component Architecture & Visual Modules
 
 ```mermaid
 flowchart TD
-    APP["App.jsx\n(Orquestador Principal & URL State Sync)"]
+    APP["App.jsx\n(Main Dashboard & URL State Sync)"]
     BCB["BackendConnectionBoundary.jsx\n(Health Check http://localhost:8000)"]
-    HDR["Header.jsx\n(Selector VIP / Ingesta IRSA / Modo Dual)"]
-    AL["AladinLiteMap.jsx\n(Aladin Lite v3 WebGL / Proyección TAN)"]
-    AMC["ActiveMetadataCard.jsx\n(Coordenadas RA/DEC, HMS/DMS, FITS Count)"]
-    FB["FlipbookViewer.jsx\n(Visor Temporal / ZScale / Diff Mode / MP4)"]
-    SPEC["SpectrumChart.jsx\n(Recharts 102 Canales / Bandas B1-B6)"]
-    GAIA["GaiaValidationPanel.jsx\n(Validación Cruzada Gaia DR3 / Alerta Planeta X)"]
-    DLO["DeepLoadingOverlay.jsx\n(Overlay de Descarga Profunda IRSA)"]
+    HDR["Header.jsx\n(VIP Selector / IRSA Ingest / Mode Switch)"]
+    AL["AladinLiteMap.jsx\n(Aladin Lite v3 WebGL / TAN Projection)"]
+    AMC["ActiveMetadataCard.jsx\n(RA/DEC, HMS/DMS, FITS Count)"]
+    FB["FlipbookViewer.jsx\n(Time Series / ZScale / Diff Mode / MP4)"]
+    SPEC["SpectrumChart.jsx\n(Recharts 102 Channels / B1-B6 Bands)"]
+    GAIA["GaiaValidationPanel.jsx\n(ESA Gaia DR3 Cross-Check / Planet X Alert)"]
+    DLO["DeepLoadingOverlay.jsx\n(Deep IRSA Ingestion Overlay)"]
 
     APP --> BCB
     BCB --> HDR
@@ -99,87 +103,87 @@ flowchart TD
 ```
 
 ### 1. Sky Survey Navigator (`AladinLiteMap.jsx`)
-- **Motor WebGL Nativo:** Instancia Aladin Lite v3 configurado estrictamente con proyección Gnomónica `"TAN"` (evitando deformaciones de proyección como `"SIN"` o `"AIT"`).
-- **Prospección HiPS:** Alterna entre el sondeo óptico/cercano infrarrojo `CDS/P/2MASS/color` y el sondeo infrarrojo medio `CDS/P/allWISE/color`.
-- **Interacción Point & Click Bidireccional:** Escucha eventos de clic en el lienzo WebGL y ejecuta la conversión de coordenadas de pantalla a coordenadas astronómicas $ICRSd$ celestes (`pix2world`).
-- **Tiras de Cobertura IRSA Verificada:** Dispone de accesos directos calibrados con cobertura multiepocal confirmada en NASA IRSA:
+- **WebGL Engine:** Embeds Aladin Lite v3 configured strictly with a Gnomonic Tangential projection (`"TAN"`), preventing distortion artifacts associated with sinusoidal or Aitoff mappings.
+- **Survey Switching:** Toggles seamlessly between `CDS/P/2MASS/color` (optical/near-IR) and `CDS/P/allWISE/color` (mid-IR).
+- **Interactive Point & Click:** Captures canvas pointer events and executes high-precision screen-to-celestial coordinate transformation (`pix2world` in $ICRSd$).
+- **Verified IRSA Observational Strips:** Provides direct camera positioning for sectors with verified multi-epoch coverage in NASA IRSA:
   - `Ophiuchus Field` ($RA: 269.4850°, DEC: 4.7210°$)
   - `Taurus-Auriga Complex` ($RA: 76.9120°, DEC: 30.4280°$)
   - `Draco NEP Strip` ($RA: 249.1850°, DEC: 66.7820°$)
   - `Hydra IR Sector` ($RA: 133.8210°, DEC: -7.2150°$)
 
 ### 2. Time Travel Flipbook & WiseView Controls (`FlipbookViewer.jsx`)
-- **Reproducción Multitemporal:** Permite avanzar, retroceder o animar en bucle las exposiciones FITS a $1, 2, 5, 10, 15, 20\,\text{fps}$.
-- **Filtros Ópticos en Canvas:** Sliders de brillo, contraste e inversión de polaridad para maximizar la visibilidad de objetos tenues.
-- **Sustracción Matricial NumPy en Vivo:** Al activar el modo `diff`, solicita al backend la resta diferencial entre dos épocas arbitrarias (`epochA` y `epochB`), eliminando estrellas de fondo y resaltando asteroides u objetos con movimiento propio extremo.
-- **Exportación de Video Científico:** Botón de un solo clic que dispara `GET /export-mp4`, descargando un archivo `.mp4` codificado en H.264 listo para publicaciones o presentaciones.
+- **Multi-Epoch Motion Engine:** Loops, steps, and animates calibrated FITS frames at $1, 2, 5, 10, 15, 20\,\text{fps}$.
+- **Real-Time Optical Filters:** Hardware-accelerated canvas controls for brightness, contrast, and polarity inversion.
+- **On-the-Fly NumPy Difference:** Triggers backend matrix subtraction ($\text{Epoch } A - \text{Epoch } B$) with MAD sigma-clipping, exposing motion dipoles while nulling static background stars.
+- **Scientific MP4 Export:** Triggers `GET /export-mp4` and initiates automated browser download of an H.264 animation.
 
-### 3. Espectrofotómetro Infrarrojo de 102 Canales (`SpectrumChart.jsx`)
-- **Renderizado Vectorial Recharts:** Grafica los 102 canales continuos de SPHEREx con un degradado lineal SVG que transiciona suavemente a través de las 6 bandas espectrales ($B1$ a $B6$).
-- **Inspección por Píxel:** Si el usuario hace clic sobre un píxel específico en el Flipbook, el gráfico se actualiza en milisegundos mostrando la curva espectral de esa apertura exacta ($3 \times 3$).
-- **Líneas de Referencia Moleculares:** Marcadores visuales de absorción clave:
-  - Hielo de agua interestelar ($H_2O$ en $2.0\,\mu\text{m}$ y $3.0\,\mu\text{m}$).
-  - Hidrocarburos y metano ($CH_4$ en $3.3\,\mu\text{m}$).
-  - Hielo de monóxido y dióxido de carbono ($CO/CO_2$ en $4.26\,\mu\text{m}$).
+### 3. 102-Channel Infrared Spectrophotometer (`SpectrumChart.jsx`)
+- **Vector Recharts Rendering:** Renders all 102 SPHEREx channels with a multi-stop SVG linear gradient traversing bands $B1$ through $B6$.
+- **Pixel-Level Inspection:** Clicking any pixel on the Flipbook viewer requests a targeted $3 \times 3$ aperture integration at that coordinate, updating the plot in milliseconds.
+- **Diagnostic Molecular Absorption Flags:** Visual reference lines marking signature transitions:
+  - Interstellar water ice ($H_2O$ at $2.0\,\mu\text{m}$ and $3.0\,\mu\text{m}$).
+  - Gaseous methane and hydrocarbons ($CH_4$ at $3.3\,\mu\text{m}$).
+  - Solid carbon monoxide and dioxide ($CO/CO_2$ at $4.26\,\mu\text{m}$).
 
-### 4. Validador Astrométrico ESA Gaia DR3 (`GaiaValidationPanel.jsx`)
-- **Auditoría en Tiempo Real:** Realiza una consulta asíncrona a `GET /gaia-check` cada vez que cambia el objetivo o las coordenadas.
-- **Detección de Anomalías / Planeta X:** Si la fuente emite vigorosamente en el infrarrojo pero no tiene contraparte óptica registrada en Gaia DR3 en un radio de $5''$, el componente muestra una tarjeta de **Alerta de Anomalía Astrométrica**, indicando un fuerte candidato a objeto ultrafrío o cuerpo del sistema solar exterior.
+### 4. ESA Gaia DR3 Astrometric Validator (`GaiaValidationPanel.jsx`)
+- **Automated Catalog Cross-Check:** Dispatches asynchronous queries to `GET /gaia-check` on target or coordinate changes.
+- **Planet X / Anomaly Notification:** When infrared flux is confirmed but no optical catalog match exists within $5''$, an **Astrometric Anomaly Banner** is raised, flagging the source as a candidate ultra-cool brown dwarf or outer Solar System transiting body.
 
-### 5. Sincronización Bidireccional de Estado en URL (`App.jsx`)
-Todos los parámetros críticos de la sesión se reflejan en la barra de direcciones mediante `window.history.replaceState` y `URLSearchParams`:
+### 5. Bidirectional URL State Synchronization (`App.jsx`)
+Session parameters are continually synchronized with the browser address bar via `window.history.replaceState` and `URLSearchParams`:
 ```
 http://localhost:5173/?target=barnard&ra=269.4521&dec=4.6933&mode=diff&fps=5&invert=false&epochA=0&epochB=1
 ```
-Esto permite compartir descubrimientos, estados de análisis o vistas específicas de estrellas entre investigadores con solo copiar y pegar el enlace.
+This enables sharing exact celestial coordinates, display parameters, and analysis states via simple URL links.
 
-### 6. Verificación de Integridad de Telemetría (`BackendConnectionBoundary.jsx`)
-Al montar la aplicación, se evalúa `GET http://localhost:8000/health`. Si el backend está apagado o no responde en tiempo y forma, se bloquea la interfaz con un diagnóstico visual claro y un botón de reintento, impidiendo que el usuario opere con datos falseados o simulados.
+### 6. Telemetry Health Boundary (`BackendConnectionBoundary.jsx`)
+On initial mount, the boundary checks `GET http://localhost:8000/health`. If the backend is unreachable, the dashboard displays a diagnostic modal with automated retry capability, enforcing the **Zero-Simulation Policy**.
 
 ---
 
-## 📂 Estructura del Directorio `frontend/`
+## 📂 Directory Hierarchy (`frontend/`)
 
 ```bash
 frontend/
-├── index.html                     # Entrada HTML con fuentes Inter y JetBrains Mono
-├── package.json                   # Dependencias oficiales (Vite, React, Tailwind, Recharts, Lucide)
-├── package-lock.json              # Bloqueo de versiones del árbol npm
-├── postcss.config.js              # Pipeline de procesamiento PostCSS
-├── tailwind.config.js             # Paleta cromática espacial y tokens CSDS
-├── vite.config.js                 # Servidor de desarrollo en puerto 5173
-├── DESIGN.md                      # Cosmic Scientific Design System (Especificación CSDS v3.0)
-├── README.md                      # Este documento técnico de referencia
-├── public/                        # Activos públicos estáticos
-│   └── aladin.js                  # Librería Aladin Lite v3 (CDS Strasbourg)
-└── src/                           # Código fuente de la aplicación
-    ├── App.jsx                    # Orquestador del Dashboard Científico y URL Sync
-    ├── index.css                  # Estilos globales, animaciones y scrollbar personalizada
-    ├── main.jsx                   # Punto de montaje de React DOM
-    ├── components/                # Componentes modulares
-    │   ├── ActiveMetadataCard.jsx        # Conversión RA/DEC a HMS/DMS y metadatos FITS
-    │   ├── AladinLiteMap.jsx             # Integración Aladin Lite v3 WebGL con Point & Click
-    │   ├── BackendConnectionBoundary.jsx # Verificación estricta de salud de FastAPI
-    │   ├── CornerReticle.jsx             # Retícula HUD científica con esquinas cósmicas
-    │   ├── DeepLoadingOverlay.jsx        # Pantalla de carga para ingestas profundas en IRSA
-    │   ├── FlipbookViewer.jsx            # Visor temporal, Modo Diferencia, WiseView y MP4
-    │   ├── GaiaValidationPanel.jsx       # Validación astrométrica cruzada con ESA Gaia DR3
-    │   ├── Header.jsx                    # Barra superior, selector VIP y conmutador de modo
-    │   └── SpectrumChart.jsx             # Espectrofotómetro de 102 canales en Recharts
+├── index.html                     # HTML root with Inter & JetBrains Mono fonts
+├── package.json                   # NPM manifest (Vite, React, Tailwind, Recharts, Lucide)
+├── package-lock.json              # Frozen dependency tree lock
+├── postcss.config.js              # PostCSS build pipeline
+├── tailwind.config.js             # CSDS theme colors and cosmic tokens
+├── vite.config.js                 # Vite bundler configuration (Port 5173)
+├── DESIGN.md                      # Cosmic Scientific Design System specification (CSDS v3.0)
+├── README.md                      # This technical reference manual
+├── public/                        # Public static web assets
+│   └── aladin.js                  # Aladin Lite v3 WebGL client
+└── src/                           # Application source code
+    ├── App.jsx                    # Scientific dashboard orchestrator & URL state manager
+    ├── index.css                  # Global CSS rules, animations, and custom scrollbar
+    ├── main.jsx                   # React DOM root entry point
+    ├── components/                # Modular UI components
+    │   ├── ActiveMetadataCard.jsx        # RA/DEC coordinate displays & HMS/DMS formatters
+    │   ├── AladinLiteMap.jsx             # Aladin Lite v3 WebGL interactive sky map
+    │   ├── BackendConnectionBoundary.jsx # Strict FastAPI health & connection guard
+    │   ├── CornerReticle.jsx             # Sci-Fi HUD reticle frame
+    │   ├── DeepLoadingOverlay.jsx        # Ingestion loading overlay for deep IRSA queries
+    │   ├── FlipbookViewer.jsx            # Multi-epoch WiseView, Diff mode, and MP4 export
+    │   ├── GaiaValidationPanel.jsx       # ESA Gaia DR3 astrometric cross-checker
+    │   ├── Header.jsx                    # Header bar, target selector, and mode switch
+    │   └── SpectrumChart.jsx             # 102-channel spectrophotometer (Recharts)
     └── services/
-        └── api.js                 # Capa de consumo HTTP estricta a http://localhost:8000
+        └── api.js                 # Strict HTTP client connected to http://localhost:8000
 ```
 
 ---
 
-## 📡 Consumo de API REST y Contratos de Servicio (`api.js`)
+## 📡 REST API Client & Service Contracts (`api.js`)
 
-El archivo [`src/services/api.js`](./src/services/api.js) centraliza todas las llamadas HTTP hacia `http://localhost:8000` con manejo riguroso de errores:
+The [`src/services/api.js`](./src/services/api.js) module encapsulates all HTTP communication with the backend service running at `http://localhost:8000`:
 
 ```javascript
 import {
   checkHealth,           // GET /health
-  getTargets,            // GET /api/targets con fallback a /targets
+  getTargets,            // GET /api/targets (fallback to /targets)
   getFitsManifest,       // GET /fits/{tid}
   getEpochImageUrl,      // GET /fits/{tid}/{index}?format=png
   ingestTarget,          // POST /ingest/{tid}
@@ -193,40 +197,40 @@ import {
 
 ---
 
-## 🛠️ Instalación, Ejecución y Scripts de Construcción
+## 🛠️ Installation, Development & Build Scripts
 
-### Prerrequisitos
-- **Node.js**: Versión `18.0.0` o superior instalada (`node -v`).
-- **NPM**: Gestor de paquetes de Node (`npm -v`).
-- **Backend Activo**: El motor FastAPI debe estar corriendo en `http://localhost:8000`.
+### Prerequisites
+- **Node.js**: Version `18.0.0` or higher (`node -v`).
+- **NPM**: Node package manager (`npm -v`).
+- **Active Backend**: The FastAPI backend must be running at `http://localhost:8000`.
 
-### Comandos de Terminal
+### Terminal Commands
 
 ```bash
-# 1. Acceder al directorio del frontend
+# 1. Navigate to the frontend directory
 cd LSAF-NASA/frontend
 
-# 2. Instalar dependencias del proyecto
+# 2. Install application dependencies
 npm install
 
-# 3. Iniciar el servidor de desarrollo en Vite
+# 3. Start the Vite development server
 npm run dev
 ```
 
-El panel estará disponible de inmediato en:
+Access the application in your browser:
 👉 **`http://localhost:5173`**
 
-### Scripts Disponibles en `package.json`
+### Available NPM Scripts
 
-| Comando | Acción |
+| Script Command | Action |
 |---|---|
-| `npm run dev` | Inicia el servidor de desarrollo local con recarga rápida de módulos (HMR) en el puerto `5173`. |
-| `npm run build` | Compila y optimiza la aplicación para producción en la carpeta `dist/`. |
-| `npm run preview` | Sirve localmente los archivos compilados de `dist/` para verificar el empaquetado final. |
+| `npm run dev` | Launches the local development server with Hot Module Replacement (HMR) on port `5173`. |
+| `npm run build` | Compiles and tree-shakes the application into production-optimized bundles in `dist/`. |
+| `npm run preview` | Spins up a local web server to preview the production build from `dist/`. |
 
 ---
 
-## 👥 Créditos de Diseño y Frontend
+## 👥 UI/UX & Frontend Engineering Credits
 
-- **Isaac Atilano Tobón ([@Yishaq02](https://github.com/Yishaq02))**: Arquitectura Frontend, diseño UI/UX, integración de Aladin Lite v3 y sincronización de estado.
-- **Alo**: Co-desarrollo de interfaz, implementación de componentes y refinamiento de la experiencia de usuario.
+- **Isaac Atilano Tobón ([@Yishaq02](https://github.com/Yishaq02))**: Frontend architecture, UI/UX design, Aladin Lite v3 WebGL integration, and state synchronization.
+- **Alo**: Frontend co-development, component layout implementation, and interface styling.
